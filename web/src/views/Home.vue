@@ -54,7 +54,7 @@
           v-for="song in store.dailySongs.slice(0, 12)"
           :key="song.id"
           class="daily-card hover-scale"
-          @click="store.play(song.name, song.platform)"
+          @click="store.playById(song.id, song.platform)"
         >
           <CoverArt :url="song.coverUrl" :size="120" :radius="10" :show-shadow="true" />
           <div class="daily-name">{{ song.name }}</div>

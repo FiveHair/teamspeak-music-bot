@@ -76,10 +76,14 @@ export const usePlayerStore = defineStore('player', {
     },
 
     updateBotStatus(botId: string, status: BotStatus) {
+      // Capture previous state BEFORE updating
       const prev = this.bots.find((b) => b.id === botId);
       const prevSongId = prev?.currentSong?.id;
+      const prevPaused = prev?.paused ?? false;
+      const prevPlaying = prev?.playing ?? false;
       const newSongId = status.currentSong?.id;
 
+      // Update the bot status
       const index = this.bots.findIndex((b) => b.id === botId);
       if (index >= 0) {
         this.bots[index] = status;
@@ -87,19 +91,24 @@ export const usePlayerStore = defineStore('player', {
         this.bots.push(status);
       }
 
-      // Reset play timer when song changes
+      // Only adjust timing for the active bot
+      if (botId !== (this.activeBotId ?? this.bots[0]?.id)) return;
+
+      // Song changed — reset timer
       if (newSongId && newSongId !== prevSongId) {
         this.playStartedAt = Date.now();
         this.pausedElapsed = 0;
+        return;
       }
 
-      // Track pause/resume
-      if (status.playing && !status.paused && prev?.paused) {
-        // Resumed — adjust start time
+      // Resumed from pause
+      if (status.playing && !status.paused && prevPaused) {
         this.playStartedAt = Date.now() - this.pausedElapsed * 1000;
+        return;
       }
-      if (status.paused && !prev?.paused) {
-        // Paused — save elapsed
+
+      // Paused
+      if (status.paused && prevPlaying && !prevPaused) {
         this.pausedElapsed = this.playStartedAt > 0
           ? (Date.now() - this.playStartedAt) / 1000
           : 0;
@@ -154,9 +163,28 @@ export const usePlayerStore = defineStore('player', {
       this.pausedElapsed = 0;
     },
 
+    async playById(songId: string, platform = 'netease') {
+      if (!this.activeBotId) return;
+      await axios.post(`/api/player/${this.activeBotId}/play-by-id`, { songId, platform });
+      this.playStartedAt = Date.now();
+      this.pausedElapsed = 0;
+    },
+
     async addToQueue(query: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/add`, { query, platform });
+    },
+
+    async addToQueueById(songId: string, platform = 'netease') {
+      if (!this.activeBotId) return;
+      await axios.post(`/api/player/${this.activeBotId}/add-by-id`, { songId, platform });
+    },
+
+    async playPlaylist(playlistId: string, platform = 'netease') {
+      if (!this.activeBotId) return;
+      await axios.post(`/api/player/${this.activeBotId}/play-playlist`, { playlistId, platform });
+      this.playStartedAt = Date.now();
+      this.pausedElapsed = 0;
     },
 
     async pause() {

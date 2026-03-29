@@ -96,8 +96,8 @@ onMounted(async () => {
     ]);
     playlist.value = detailRes.data.playlist;
     songs.value = songsRes.data.songs;
-  } catch (err) {
-    console.error('Failed to load playlist:', err);
+  } catch (err: any) {
+    console.error('Failed to load playlist:', err?.response?.status, err?.message);
     playlist.value = null;
     songs.value = [];
   } finally {

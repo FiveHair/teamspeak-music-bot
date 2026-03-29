@@ -1,69 +1,73 @@
 <template>
-  <div class="player-bar frosted-glass" v-if="currentSong">
-    <!-- Progress bar -->
-    <div
-      class="progress-bar-container"
-      ref="progressBarRef"
-      @mousedown="onProgressMouseDown"
-      @mousemove="onProgressHover"
-      @mouseleave="progressTooltipVisible = false"
-    >
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" :style="{ width: progressPercent + '%' }" />
-      </div>
-      <div
-        v-if="progressTooltipVisible"
-        class="progress-tooltip"
-        :style="{ left: progressTooltipX + 'px' }"
-      >
-        {{ progressTooltipTime }}
-      </div>
-    </div>
-
-    <div class="player-left">
-      <CoverArt :url="currentSong.coverUrl" :size="40" />
-      <div class="song-info">
-        <div class="song-name">{{ currentSong.name }}</div>
-        <div class="song-artist">{{ currentSong.artist }}</div>
-      </div>
-    </div>
-
-    <div class="player-center">
-      <span class="time-display time-current">{{ formatTime(currentElapsed) }}</span>
-      <button class="control-btn" @click="store.prev()">
-        <Icon icon="mdi:skip-previous" />
-      </button>
-      <button class="play-btn" @click="togglePlay">
-        <Icon :icon="store.isPlaying ? 'mdi:pause' : 'mdi:play'" />
-      </button>
-      <button class="control-btn" @click="store.next()">
-        <Icon icon="mdi:skip-next" />
-      </button>
-      <button class="control-btn mode-btn" @click="cycleMode" :title="modeLabel">
-        <Icon :icon="modeIcon" />
-        <span class="mode-label">{{ modeLabel }}</span>
-      </button>
-      <span class="time-display time-total">{{ formatTime(currentSong?.duration ?? 0) }}</span>
-    </div>
-
-    <div class="player-right">
-      <Icon icon="mdi:volume-high" class="volume-icon" />
-      <input
-        type="range"
-        min="0"
-        max="100"
-        :value="activeBot?.volume ?? 75"
-        @input="onVolumeChange"
-        class="volume-slider"
-      />
-      <button class="control-btn" @click="toggleQueue">
-        <Icon icon="mdi:playlist-music" />
-      </button>
-      <RouterLink to="/lyrics" class="control-btn lyrics-btn">
-        <Icon icon="mdi:microphone" />
-      </RouterLink>
-    </div>
+  <div class="player-wrapper" v-if="currentSong">
     <Queue :open="showQueue" @close="showQueue = false" />
+
+    <div class="player-bar frosted-glass">
+      <!-- Progress bar -->
+      <div
+        class="progress-bar-container"
+        ref="progressBarRef"
+        @click="onProgressClick"
+        @mousemove="onProgressHover"
+        @mouseleave="progressTooltipVisible = false"
+      >
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" :style="{ width: progressPercent + '%' }" />
+          <div class="progress-bar-thumb" :style="{ left: progressPercent + '%' }" />
+        </div>
+        <div
+          v-if="progressTooltipVisible"
+          class="progress-tooltip"
+          :style="{ left: progressTooltipX + 'px' }"
+        >
+          {{ progressTooltipTime }}
+        </div>
+      </div>
+
+      <div class="player-left">
+        <CoverArt :url="currentSong.coverUrl" :size="40" />
+        <div class="song-info">
+          <div class="song-name">{{ currentSong.name }}</div>
+          <div class="song-artist">{{ currentSong.artist }}</div>
+        </div>
+      </div>
+
+      <div class="player-center">
+        <span class="time-display time-current">{{ formatTime(currentElapsed) }}</span>
+        <button class="control-btn" @click="store.prev()">
+          <Icon icon="mdi:skip-previous" />
+        </button>
+        <button class="play-btn" @click="togglePlay">
+          <Icon :icon="store.isPlaying ? 'mdi:pause' : 'mdi:play'" />
+        </button>
+        <button class="control-btn" @click="store.next()">
+          <Icon icon="mdi:skip-next" />
+        </button>
+        <button class="control-btn mode-btn" @click="cycleMode" :title="modeLabel">
+          <Icon :icon="modeIcon" />
+          <span class="mode-label">{{ modeLabel }}</span>
+        </button>
+        <span class="time-display time-total">{{ formatTime(currentSong?.duration ?? 0) }}</span>
+      </div>
+
+      <div class="player-right">
+        <Icon icon="mdi:volume-high" class="volume-icon" />
+        <input
+          type="range"
+          min="0"
+          max="100"
+          :value="activeBot?.volume ?? 75"
+          @input="onVolumeChange"
+          class="volume-slider"
+        />
+        <button class="control-btn" :class="{ active: showQueue }" @click="showQueue = !showQueue">
+          <Icon icon="mdi:playlist-music" />
+        </button>
+        <RouterLink to="/lyrics" class="control-btn lyrics-btn">
+          <Icon icon="mdi:microphone" />
+        </RouterLink>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -80,13 +84,13 @@ const store = usePlayerStore();
 const activeBot = computed(() => store.activeBot);
 const currentSong = computed(() => store.currentSong);
 
-// Progress bar state
-const progressBarRef = ref<HTMLElement | null>(null);
+// Progress — use manual timer instead of relying on reactive getters
 const currentElapsed = ref(0);
 const progressPercent = ref(0);
 const progressTooltipVisible = ref(false);
 const progressTooltipX = ref(0);
 const progressTooltipTime = ref('0:00');
+const progressBarRef = ref<HTMLElement | null>(null);
 let rafId: number | null = null;
 
 function formatTime(seconds: number): string {
@@ -97,22 +101,33 @@ function formatTime(seconds: number): string {
 }
 
 function updateProgress() {
-  const elapsed = store.elapsed;
+  // Directly compute elapsed from raw values (bypass Vue reactivity)
+  const bot = store.activeBot;
+  if (bot?.playing && !bot.paused && store.playStartedAt > 0) {
+    currentElapsed.value = (Date.now() - store.playStartedAt) / 1000;
+  } else if (bot?.paused) {
+    currentElapsed.value = store.pausedElapsed;
+  }
+
   const duration = currentSong.value?.duration ?? 0;
-  currentElapsed.value = elapsed;
-  progressPercent.value = duration > 0 ? Math.min((elapsed / duration) * 100, 100) : 0;
+  progressPercent.value = duration > 0
+    ? Math.min((currentElapsed.value / duration) * 100, 100)
+    : 0;
+
   rafId = requestAnimationFrame(updateProgress);
 }
 
-function onProgressMouseDown(e: MouseEvent) {
+function onProgressClick(e: MouseEvent) {
   const bar = progressBarRef.value;
   if (!bar) return;
   const rect = bar.getBoundingClientRect();
   const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   const duration = currentSong.value?.duration ?? 0;
-  // Visual-only seek (server-side seeking not supported)
-  progressPercent.value = ratio * 100;
-  progressTooltipTime.value = formatTime(ratio * duration);
+  const seekTime = ratio * duration;
+  // Can't seek server-side FFmpeg stream — show tooltip with target time
+  progressTooltipTime.value = `跳转不可用 (${formatTime(seekTime)})`;
+  progressTooltipVisible.value = true;
+  setTimeout(() => { progressTooltipVisible.value = false; }, 1500);
 }
 
 function onProgressHover(e: MouseEvent) {
@@ -133,11 +148,6 @@ onMounted(() => {
 onUnmounted(() => {
   if (rafId !== null) cancelAnimationFrame(rafId);
 });
-
-function toggleQueue() {
-  showQueue.value = !showQueue.value;
-  console.log('Queue panel toggled:', showQueue.value);
-}
 
 function togglePlay() {
   if (store.isPlaying) {
@@ -178,33 +188,38 @@ function cycleMode() {
 </script>
 
 <style lang="scss" scoped>
-.player-bar {
+.player-wrapper {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 100;
+}
+
+.player-bar {
   height: var(--player-height);
   display: flex;
   align-items: center;
   padding: 0 24px;
-  z-index: 100;
   border-top: 1px solid var(--border-color);
+  position: relative;
 }
 
 .progress-bar-container {
   position: absolute;
-  top: -4px;
+  top: -6px;
   left: 0;
   right: 0;
-  height: 8px;
+  height: 12px;
   cursor: pointer;
   z-index: 101;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  padding: 0;
 
   &:hover {
     .progress-bar-bg { height: 4px; }
-    .progress-bar-fill { height: 4px; }
+    .progress-bar-thumb { opacity: 1; transform: scale(1); }
   }
 }
 
@@ -214,6 +229,7 @@ function cycleMode() {
   background: var(--border-color);
   transition: height 0.15s ease;
   position: relative;
+  border-radius: 1px;
 }
 
 .progress-bar-fill {
@@ -222,8 +238,22 @@ function cycleMode() {
   left: 0;
   height: 100%;
   background: var(--color-primary);
-  border-radius: 0 1px 1px 0;
-  transition: height 0.15s ease;
+  border-radius: 1px;
+  // No transition — updated via rAF for smooth movement
+}
+
+.progress-bar-thumb {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+  margin-left: -5px;
+  margin-top: -5px;
 }
 
 .progress-tooltip {
@@ -287,6 +317,7 @@ function cycleMode() {
   opacity: 0.7;
   transition: opacity var(--transition-fast);
   &:hover { opacity: 1; }
+  &.active { opacity: 1; color: var(--color-primary); }
 }
 
 .mode-btn {

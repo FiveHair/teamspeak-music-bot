@@ -1,0 +1,75 @@
+export interface Song {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  duration: number; // seconds
+  coverUrl: string;
+  platform: "netease" | "qq";
+}
+
+export interface SongWithUrl extends Song {
+  url: string;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  coverUrl: string;
+  songCount: number;
+  platform: "netease" | "qq";
+}
+
+export interface Album {
+  id: string;
+  name: string;
+  artist: string;
+  coverUrl: string;
+  songCount: number;
+  platform: "netease" | "qq";
+}
+
+export interface LyricLine {
+  time: number; // seconds
+  text: string;
+  translation?: string;
+}
+
+export interface SearchResult {
+  songs: Song[];
+  playlists: Playlist[];
+  albums: Album[];
+}
+
+export interface QrCodeResult {
+  qrUrl: string;
+  key: string;
+}
+
+export interface AuthStatus {
+  loggedIn: boolean;
+  nickname?: string;
+  avatarUrl?: string;
+}
+
+export interface MusicProvider {
+  readonly platform: "netease" | "qq";
+
+  search(query: string, limit?: number): Promise<SearchResult>;
+  getSongUrl(songId: string): Promise<string | null>;
+  getSongDetail(songId: string): Promise<Song | null>;
+  getPlaylistSongs(playlistId: string): Promise<Song[]>;
+  getRecommendPlaylists(): Promise<Playlist[]>;
+  getAlbumSongs(albumId: string): Promise<Song[]>;
+  getLyrics(songId: string): Promise<LyricLine[]>;
+  getQrCode(): Promise<QrCodeResult>;
+  checkQrCodeStatus(
+    key: string
+  ): Promise<"waiting" | "scanned" | "confirmed" | "expired">;
+  loginWithSms?(phone: string, code: string): Promise<boolean>;
+  sendSmsCode?(phone: string): Promise<boolean>;
+  setCookie(cookie: string): void;
+  getCookie(): string;
+  getAuthStatus(): Promise<AuthStatus>;
+  getPersonalFm?(): Promise<Song[]>;
+}

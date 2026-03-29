@@ -23,6 +23,16 @@ export interface BotStatus {
   playMode: string;
 }
 
+export interface PlaylistItem {
+  id: string;
+  name: string;
+  coverUrl: string;
+  songCount: number;
+  platform: string;
+}
+
+const HOME_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export const usePlayerStore = defineStore('player', {
   state: () => ({
     bots: [] as BotStatus[],
@@ -31,6 +41,11 @@ export const usePlayerStore = defineStore('player', {
     theme: 'dark' as 'dark' | 'light',
     playStartedAt: 0, // timestamp when current song started
     pausedElapsed: 0, // elapsed time when paused
+    // Home page cached data
+    recommendPlaylists: [] as PlaylistItem[],
+    dailySongs: [] as Song[],
+    userPlaylists: [] as PlaylistItem[],
+    lastFetchTime: 0,
   }),
 
   getters: {
@@ -187,6 +202,31 @@ export const usePlayerStore = defineStore('player', {
     async setMode(mode: string) {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/mode`, { mode });
+    },
+
+    async fetchHomeData() {
+      // Skip if data was fetched within the last 5 minutes
+      if (this.lastFetchTime > 0 && Date.now() - this.lastFetchTime < HOME_CACHE_TTL) {
+        return;
+      }
+
+      const [playlistRes, dailyRes, userRes] = await Promise.allSettled([
+        axios.get('/api/music/recommend/playlists'),
+        axios.get('/api/music/recommend/songs'),
+        axios.get('/api/music/user/playlists'),
+      ]);
+
+      if (playlistRes.status === 'fulfilled') {
+        this.recommendPlaylists = playlistRes.value.data.playlists;
+      }
+      if (dailyRes.status === 'fulfilled') {
+        this.dailySongs = dailyRes.value.data.songs;
+      }
+      if (userRes.status === 'fulfilled') {
+        this.userPlaylists = userRes.value.data.playlists;
+      }
+
+      this.lastFetchTime = Date.now();
     },
   },
 });

@@ -32,6 +32,33 @@ export function createMusicRouter(
     }
   });
 
+  router.get("/search/all", async (req, res) => {
+    try {
+      const { q, limit } = req.query;
+      if (!q) {
+        res.status(400).json({ error: "q (query) is required" });
+        return;
+      }
+      const parsedLimit = parseInt(limit as string) || 20;
+      const [neteaseResult, qqResult] = await Promise.allSettled([
+        neteaseProvider.search(q as string, parsedLimit),
+        qqProvider.search(q as string, parsedLimit),
+      ]);
+
+      const songs = [
+        ...(neteaseResult.status === "fulfilled"
+          ? neteaseResult.value.songs
+          : []),
+        ...(qqResult.status === "fulfilled" ? qqResult.value.songs : []),
+      ];
+
+      res.json({ songs });
+    } catch (err) {
+      logger.error({ err }, "Unified search failed");
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   router.get("/song/:id", async (req, res) => {
     try {
       const provider = getProvider(req.query.platform as string);

@@ -42,16 +42,17 @@ export function createApiServerManager(
         logger.error({ err }, "Failed to start NetEase Cloud Music API");
       }
 
-      // QQ Music API — placeholder (requires separate setup)
+      // QQ Music API — auto-starts on port 3200 when imported
       try {
+        await import("@sansenjian/qq-music-api");
         logger.info(
           { port: options.qqMusicPort },
-          "QQ Music API: not bundled, skipping"
+          "QQ Music API started"
         );
       } catch (err) {
-        logger.warn(
+        logger.error(
           { err },
-          "QQ Music API not available"
+          "Failed to start QQ Music API"
         );
       }
     },

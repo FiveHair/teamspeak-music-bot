@@ -3,7 +3,13 @@
     <div class="song-index">{{ index }}</div>
     <CoverArt :url="song.coverUrl" :size="36" :radius="6" />
     <div class="song-info">
-      <div class="song-name">{{ song.name }}</div>
+      <div class="song-name-row">
+        <span class="song-name">{{ song.name }}</span>
+        <span
+          class="platform-badge"
+          :class="song.platform === 'qq' ? 'badge-qq' : 'badge-netease'"
+        >{{ song.platform === 'qq' ? 'QQ' : '网易云' }}</span>
+      </div>
       <div class="song-artist">{{ song.artist }}</div>
     </div>
     <div class="song-album">{{ song.album }}</div>
@@ -73,12 +79,38 @@ function formatDuration(seconds: number): string {
   min-width: 0;
 }
 
+.song-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .song-name {
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.platform-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.badge-netease {
+  background: rgba(232, 17, 35, 0.15);
+  color: #e81123;
+}
+
+.badge-qq {
+  background: rgba(18, 183, 106, 0.15);
+  color: #12b76a;
 }
 
 .song-artist {

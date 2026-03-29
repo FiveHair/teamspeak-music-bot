@@ -16,22 +16,6 @@
           autofocus
         />
       </div>
-      <div class="platform-toggle">
-        <button
-          class="platform-btn"
-          :class="{ active: platform === 'netease' }"
-          @click="platform = 'netease'; doSearch()"
-        >
-          网易云
-        </button>
-        <button
-          class="platform-btn"
-          :class="{ active: platform === 'qq' }"
-          @click="platform = 'qq'; doSearch()"
-        >
-          QQ音乐
-        </button>
-      </div>
     </div>
 
     <div v-if="loading" class="loading">搜索中...</div>
@@ -39,7 +23,7 @@
     <div v-else-if="results.length > 0" class="results">
       <SongCard
         v-for="(song, i) in results"
-        :key="song.id"
+        :key="`${song.platform}-${song.id}`"
         :song="song"
         :index="i + 1"
         :active="store.currentSong?.id === song.id"
@@ -66,7 +50,6 @@ const store = usePlayerStore();
 const route = useRoute();
 
 const query = ref((route.query.q as string) || '');
-const platform = ref<'netease' | 'qq'>('netease');
 const results = ref<Array<{ id: string; name: string; artist: string; album: string; duration: number; coverUrl: string; platform: string }>>([]);
 const loading = ref(false);
 const searched = ref(false);
@@ -76,8 +59,8 @@ async function doSearch() {
   loading.value = true;
   searched.value = true;
   try {
-    const res = await axios.get('/api/music/search', {
-      params: { q: query.value, platform: platform.value },
+    const res = await axios.get('/api/music/search/all', {
+      params: { q: query.value },
     });
     results.value = res.data.songs;
   } catch {
@@ -134,27 +117,6 @@ onMounted(() => {
 
   &::placeholder {
     color: var(--text-tertiary);
-  }
-}
-
-.platform-toggle {
-  display: flex;
-  gap: 8px;
-}
-
-.platform-btn {
-  padding: 6px 18px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--hover-bg);
-  opacity: 0.6;
-  transition: all var(--transition-fast);
-
-  &.active {
-    background: var(--color-primary);
-    color: white;
-    opacity: 1;
   }
 }
 

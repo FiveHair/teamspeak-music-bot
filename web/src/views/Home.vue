@@ -47,11 +47,11 @@
     </section>
 
     <!-- 每日推荐 -->
-    <section class="section" v-if="dailySongs.length > 0">
+    <section class="section" v-if="store.dailySongs.length > 0">
       <h2 class="section-title">每日推荐</h2>
       <div class="daily-grid">
         <div
-          v-for="song in dailySongs.slice(0, 12)"
+          v-for="song in store.dailySongs.slice(0, 12)"
           :key="song.id"
           class="daily-card hover-scale"
           @click="store.play(song.name, song.platform)"
@@ -64,11 +64,11 @@
     </section>
 
     <!-- 推荐歌单 -->
-    <section class="section" v-if="playlists.length > 0">
+    <section class="section" v-if="store.recommendPlaylists.length > 0">
       <h2 class="section-title">推荐歌单</h2>
       <div class="playlist-grid">
         <RouterLink
-          v-for="playlist in playlists"
+          v-for="playlist in store.recommendPlaylists"
           :key="playlist.id"
           :to="`/playlist/${playlist.id}?platform=${playlist.platform}`"
           class="playlist-card hover-scale"
@@ -80,11 +80,11 @@
     </section>
 
     <!-- 我的歌单 -->
-    <section class="section" v-if="userPlaylists.length > 0">
+    <section class="section" v-if="store.userPlaylists.length > 0">
       <h2 class="section-title">我的歌单</h2>
       <div class="playlist-grid">
         <RouterLink
-          v-for="pl in userPlaylists"
+          v-for="pl in store.userPlaylists"
           :key="pl.id"
           :to="`/playlist/${pl.id}?platform=${pl.platform}`"
           class="playlist-card hover-scale"
@@ -99,40 +99,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { Icon } from '@iconify/vue';
 import axios from 'axios';
-import { usePlayerStore } from '../stores/player.js';
+import { usePlayerStore, type Song } from '../stores/player.js';
 import CoverArt from '../components/CoverArt.vue';
 
 const store = usePlayerStore();
 
-interface PlaylistItem {
-  id: string;
-  name: string;
-  coverUrl: string;
-  songCount: number;
-  platform: string;
-}
-
-interface SongItem {
-  id: string;
-  name: string;
-  artist: string;
-  album: string;
-  duration: number;
-  coverUrl: string;
-  platform: string;
-}
-
-const playlists = ref<PlaylistItem[]>([]);
-const dailySongs = ref<SongItem[]>([]);
-const userPlaylists = ref<PlaylistItem[]>([]);
-
 async function playFm() {
   try {
     const res = await axios.get('/api/music/personal/fm');
-    const songs: SongItem[] = res.data.songs;
+    const songs: Song[] = res.data.songs;
     if (songs.length > 0) {
       await store.play(songs[0].name, songs[0].platform);
       for (let i = 1; i < songs.length; i++) {
@@ -144,23 +122,8 @@ async function playFm() {
   }
 }
 
-onMounted(async () => {
-  // Fetch all data in parallel
-  const [playlistRes, dailyRes, userRes] = await Promise.allSettled([
-    axios.get('/api/music/recommend/playlists'),
-    axios.get('/api/music/recommend/songs'),
-    axios.get('/api/music/user/playlists'),
-  ]);
-
-  if (playlistRes.status === 'fulfilled') {
-    playlists.value = playlistRes.value.data.playlists;
-  }
-  if (dailyRes.status === 'fulfilled') {
-    dailySongs.value = dailyRes.value.data.songs;
-  }
-  if (userRes.status === 'fulfilled') {
-    userPlaylists.value = userRes.value.data.playlists;
-  }
+onMounted(() => {
+  store.fetchHomeData();
 });
 </script>
 

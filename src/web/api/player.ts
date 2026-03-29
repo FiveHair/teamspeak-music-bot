@@ -104,6 +104,22 @@ export function createPlayerRouter(
     }
   });
 
+  // Seek to position
+  router.post("/:botId/seek", async (req, res) => {
+    try {
+      const bot = (req as any).bot;
+      const { position } = req.body; // seconds
+      if (typeof position !== "number" || position < 0) {
+        res.status(400).json({ error: "position (seconds) is required" });
+        return;
+      }
+      bot.getPlayer().seek(position);
+      res.json({ message: `Seeked to ${Math.floor(position)}s`, seekOffset: position });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   router.get("/:botId/queue", (req, res) => {
     const bot = (req as any).bot;
     res.json({ queue: bot.getQueue(), status: bot.getStatus() });

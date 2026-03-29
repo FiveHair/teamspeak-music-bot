@@ -21,6 +21,8 @@ export interface BotStatus {
   queueSize: number;
   volume: number;
   playMode: string;
+  seekOffset?: number;
+  playStartTime?: number;
 }
 
 export interface PlaylistItem {
@@ -39,8 +41,9 @@ export const usePlayerStore = defineStore('player', {
     activeBotId: null as string | null,
     queue: [] as Song[],
     theme: 'dark' as 'dark' | 'light',
-    playStartedAt: 0, // timestamp when current song started
-    pausedElapsed: 0, // elapsed time when paused
+    playStartedAt: 0, // client timestamp when playback started
+    seekOffset: 0, // server seek offset in seconds
+    pausedElapsed: 0, // elapsed seconds when paused
     // Home page cached data
     recommendPlaylists: [] as PlaylistItem[],
     dailySongs: [] as Song[],
@@ -61,12 +64,11 @@ export const usePlayerStore = defineStore('player', {
     isPaused(): boolean {
       return this.activeBot?.paused ?? false;
     },
-    /** Elapsed playback time in seconds */
     elapsed(): number {
       if (!this.activeBot?.currentSong) return 0;
       if (this.isPaused) return this.pausedElapsed;
       if (!this.isPlaying || this.playStartedAt === 0) return 0;
-      return (Date.now() - this.playStartedAt) / 1000;
+      return this.seekOffset + (Date.now() - this.playStartedAt) / 1000;
     },
   },
 
@@ -76,14 +78,12 @@ export const usePlayerStore = defineStore('player', {
     },
 
     updateBotStatus(botId: string, status: BotStatus) {
-      // Capture previous state BEFORE updating
       const prev = this.bots.find((b) => b.id === botId);
       const prevSongId = prev?.currentSong?.id;
       const prevPaused = prev?.paused ?? false;
       const prevPlaying = prev?.playing ?? false;
       const newSongId = status.currentSong?.id;
 
-      // Update the bot status
       const index = this.bots.findIndex((b) => b.id === botId);
       if (index >= 0) {
         this.bots[index] = status;
@@ -91,17 +91,20 @@ export const usePlayerStore = defineStore('player', {
         this.bots.push(status);
       }
 
-      // Only adjust timing for the active bot
       if (botId !== (this.activeBotId ?? this.bots[0]?.id)) return;
 
-      // Song changed — reset timer
-      if (newSongId && newSongId !== prevSongId) {
+      // Use server-provided seekOffset
+      const serverSeek = status.seekOffset ?? 0;
+
+      // Song changed or seek offset changed — reset timer
+      if ((newSongId && newSongId !== prevSongId) || serverSeek !== this.seekOffset) {
+        this.seekOffset = serverSeek;
         this.playStartedAt = Date.now();
         this.pausedElapsed = 0;
         return;
       }
 
-      // Resumed from pause
+      // Resumed
       if (status.playing && !status.paused && prevPaused) {
         this.playStartedAt = Date.now() - this.pausedElapsed * 1000;
         return;
@@ -110,8 +113,8 @@ export const usePlayerStore = defineStore('player', {
       // Paused
       if (status.paused && prevPlaying && !prevPaused) {
         this.pausedElapsed = this.playStartedAt > 0
-          ? (Date.now() - this.playStartedAt) / 1000
-          : 0;
+          ? this.seekOffset + (Date.now() - this.playStartedAt) / 1000
+          : this.seekOffset;
       }
     },
 
@@ -156,18 +159,22 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
+    _resetTiming(seekSec = 0) {
+      this.seekOffset = seekSec;
+      this.playStartedAt = Date.now();
+      this.pausedElapsed = 0;
+    },
+
     async play(query: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play`, { query, platform });
-      this.playStartedAt = Date.now();
-      this.pausedElapsed = 0;
+      this._resetTiming();
     },
 
     async playById(songId: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play-by-id`, { songId, platform });
-      this.playStartedAt = Date.now();
-      this.pausedElapsed = 0;
+      this._resetTiming();
     },
 
     async addToQueue(query: string, platform = 'netease') {
@@ -183,41 +190,39 @@ export const usePlayerStore = defineStore('player', {
     async playPlaylist(playlistId: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play-playlist`, { playlistId, platform });
-      this.playStartedAt = Date.now();
-      this.pausedElapsed = 0;
+      this._resetTiming();
     },
 
     async pause() {
       if (!this.activeBotId) return;
-      this.pausedElapsed = this.playStartedAt > 0
-        ? (Date.now() - this.playStartedAt) / 1000
-        : 0;
+      // Save current elapsed including seekOffset
+      this.pausedElapsed = this.elapsed;
       await axios.post(`/api/player/${this.activeBotId}/pause`);
     },
 
     async resume() {
       if (!this.activeBotId) return;
-      this.playStartedAt = Date.now() - this.pausedElapsed * 1000;
+      // Restore: playStartedAt = now - (pausedElapsed - seekOffset)
+      this.playStartedAt = Date.now() - (this.pausedElapsed - this.seekOffset) * 1000;
       await axios.post(`/api/player/${this.activeBotId}/resume`);
     },
 
     async next() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/next`);
-      this.playStartedAt = Date.now();
-      this.pausedElapsed = 0;
+      this._resetTiming();
     },
 
     async prev() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/prev`);
-      this.playStartedAt = Date.now();
-      this.pausedElapsed = 0;
+      this._resetTiming();
     },
 
     async stop() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/stop`);
+      this.seekOffset = 0;
       this.playStartedAt = 0;
       this.pausedElapsed = 0;
     },

@@ -22,6 +22,8 @@ export class AudioPlayer extends EventEmitter {
   private logger: Logger;
   private frameLoopRunning = false;
   private nextFrameTime = 0;
+  private currentUrl = "";
+  private seekOffset = 0; // seconds offset from seek
 
   constructor(logger: Logger) {
     super();
@@ -29,26 +31,31 @@ export class AudioPlayer extends EventEmitter {
     this.logger = logger;
   }
 
-  play(url: string): void {
+  play(url: string, seekSeconds = 0): void {
     this.stop();
+    this.currentUrl = url;
+    this.seekOffset = seekSeconds;
 
-    this.logger.info({ url: url.slice(0, 80) }, "Starting playback");
+    this.logger.info({ url: url.slice(0, 80), seek: seekSeconds }, "Starting playback");
 
-    this.ffmpeg = spawn(
-      "ffmpeg",
-      [
-        "-reconnect", "1",
-        "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "5",
-        "-i", url,
-        "-f", "s16le",
-        "-ar", "48000",
-        "-ac", "2",
-        "-acodec", "pcm_s16le",
-        "-",
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] }
+    const args = [
+      "-reconnect", "1",
+      "-reconnect_streamed", "1",
+      "-reconnect_delay_max", "5",
+    ];
+    if (seekSeconds > 0) {
+      args.push("-ss", String(seekSeconds));
+    }
+    args.push(
+      "-i", url,
+      "-f", "s16le",
+      "-ar", "48000",
+      "-ac", "2",
+      "-acodec", "pcm_s16le",
+      "-",
     );
+
+    this.ffmpeg = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
 
     this.ffmpeg.stderr!.on("data", () => {
       // Suppress FFmpeg stderr output
@@ -159,6 +166,17 @@ export class AudioPlayer extends EventEmitter {
     }
   }
 
+  /** Seek to a position in seconds. Restarts FFmpeg with -ss offset. */
+  seek(seconds: number): void {
+    if (!this.currentUrl) return;
+    this.logger.info({ seek: seconds }, "Seeking");
+    this.play(this.currentUrl, seconds);
+  }
+
+  getSeekOffset(): number {
+    return this.seekOffset;
+  }
+
   stop(): void {
     this.frameLoopRunning = false;
     if (this.ffmpeg) {
@@ -167,6 +185,8 @@ export class AudioPlayer extends EventEmitter {
     }
     this.pcmBuffer = Buffer.alloc(0);
     this.state = "idle";
+    this.currentUrl = "";
+    this.seekOffset = 0;
   }
 
   setVolume(vol: number): void {

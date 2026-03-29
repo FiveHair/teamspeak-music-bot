@@ -37,6 +37,8 @@ export interface BotStatus {
   queueSize: number;
   volume: number;
   playMode: PlayMode;
+  seekOffset: number; // seconds offset from last seek/play start
+  playStartTime: number; // server timestamp when playback started
 }
 
 export class BotInstance extends EventEmitter {
@@ -505,6 +507,8 @@ export class BotInstance extends EventEmitter {
       queueSize: this.queue.size(),
       volume: this.player.getVolume(),
       playMode: this.queue.getMode(),
+      seekOffset: this.player.getSeekOffset(),
+      playStartTime: Date.now(),
     };
   }
 

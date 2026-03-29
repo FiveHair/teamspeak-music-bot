@@ -1,14 +1,17 @@
 import Database from "better-sqlite3";
 
-export interface PlayHistoryRecord {
-  id?: number;
+export interface PlayHistoryEntry {
   botId: string;
   songId: string;
   songName: string;
   artist: string;
   album: string;
-  platform: string;
+  platform: "netease" | "qq";
   coverUrl: string;
+}
+
+export interface PlayHistoryRecord extends PlayHistoryEntry {
+  id: number;
   playedAt: string;
 }
 
@@ -25,7 +28,7 @@ export interface BotInstance {
 
 export interface BotDatabase {
   db: Database.Database;
-  addPlayHistory(record: Omit<PlayHistoryRecord, "id">): void;
+  addPlayHistory(entry: PlayHistoryEntry): void;
   getPlayHistory(botId: string, limit: number): PlayHistoryRecord[];
   saveBotInstance(instance: BotInstance): void;
   getBotInstances(): BotInstance[];
@@ -44,7 +47,7 @@ function initTables(db: Database.Database): void {
       album TEXT NOT NULL,
       platform TEXT NOT NULL,
       coverUrl TEXT NOT NULL,
-      playedAt TEXT NOT NULL
+      playedAt TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS bot_instances (
@@ -66,8 +69,8 @@ export function createDatabase(dbPath: string): BotDatabase {
   initTables(db);
 
   const insertHistory = db.prepare(`
-    INSERT INTO play_history (botId, songId, songName, artist, album, platform, coverUrl, playedAt)
-    VALUES (@botId, @songId, @songName, @artist, @album, @platform, @coverUrl, @playedAt)
+    INSERT INTO play_history (botId, songId, songName, artist, album, platform, coverUrl)
+    VALUES (@botId, @songId, @songName, @artist, @album, @platform, @coverUrl)
   `);
 
   const selectHistory = db.prepare(`

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { join } from "node:path";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { getDefaultConfig, loadConfig, saveConfig } from "./config.js";
 
@@ -41,7 +41,6 @@ describe("config", () => {
 
     // Save a partial config by writing only some fields
     const partial = { webPort: 8080, locale: "en" };
-    const { writeFileSync } = require("node:fs");
     writeFileSync(path, JSON.stringify(partial), "utf-8");
 
     const loaded = loadConfig(path);

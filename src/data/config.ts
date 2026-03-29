@@ -3,8 +3,8 @@ import { dirname } from "node:path";
 
 export interface BotConfig {
   webPort: number;
-  locale: string;
-  theme: string;
+  locale: "zh" | "en";
+  theme: "dark" | "light";
   commandPrefix: string;
   commandAliases: Record<string, string>;
   neteaseApiPort: number;

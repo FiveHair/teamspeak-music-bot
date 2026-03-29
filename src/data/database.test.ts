@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createDatabase, type BotDatabase, type BotInstance } from "./database.js";
+import { createDatabase, type BotDatabase, type BotInstance, type PlayHistoryEntry } from "./database.js";
 
 describe("database", () => {
   let botDb: BotDatabase;
@@ -32,7 +32,6 @@ describe("database", () => {
       album: "Test Album",
       platform: "netease",
       coverUrl: "https://example.com/cover.jpg",
-      playedAt: new Date().toISOString(),
     });
 
     botDb.addPlayHistory({
@@ -43,7 +42,6 @@ describe("database", () => {
       album: "Another Album",
       platform: "qq",
       coverUrl: "https://example.com/cover2.jpg",
-      playedAt: new Date().toISOString(),
     });
 
     const history = botDb.getPlayHistory("bot1", 10);

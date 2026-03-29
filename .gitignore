@@ -3,4 +3,5 @@ dist/
 /data/
 *.db
 .env
+config.json
 .superpowers/

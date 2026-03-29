@@ -67,15 +67,15 @@
     <section class="section" v-if="playlists.length > 0">
       <h2 class="section-title">推荐歌单</h2>
       <div class="playlist-grid">
-        <div
+        <RouterLink
           v-for="playlist in playlists"
           :key="playlist.id"
+          :to="`/playlist/${playlist.id}?platform=${playlist.platform}`"
           class="playlist-card hover-scale"
-          @click="$router.push(`/playlist/${playlist.id}?platform=${playlist.platform}`)"
         >
           <CoverArt :url="playlist.coverUrl" :size="160" :radius="10" :show-shadow="true" />
           <div class="playlist-name">{{ playlist.name }}</div>
-        </div>
+        </RouterLink>
       </div>
     </section>
 
@@ -83,16 +83,16 @@
     <section class="section" v-if="userPlaylists.length > 0">
       <h2 class="section-title">我的歌单</h2>
       <div class="playlist-grid">
-        <div
+        <RouterLink
           v-for="pl in userPlaylists"
           :key="pl.id"
+          :to="`/playlist/${pl.id}?platform=${pl.platform}`"
           class="playlist-card hover-scale"
-          @click="$router.push(`/playlist/${pl.id}?platform=${pl.platform}`)"
         >
           <CoverArt :url="pl.coverUrl" :size="160" :radius="10" :show-shadow="true" />
           <div class="playlist-name">{{ pl.name }}</div>
           <div class="playlist-count">{{ pl.songCount }} 首</div>
-        </div>
+        </RouterLink>
       </div>
     </section>
   </div>
@@ -343,6 +343,9 @@ onMounted(async () => {
 
 .playlist-card {
   cursor: pointer;
+  display: block;
+  text-decoration: none;
+  color: inherit;
 }
 
 .playlist-name {

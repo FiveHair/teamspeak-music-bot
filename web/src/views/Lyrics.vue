@@ -110,9 +110,20 @@ function findActiveLine(elapsed: number): number {
 
 function scrollToActiveLine(idx: number) {
   const el = lineRefs.value[idx];
-  if (el && scrollContainer.value) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+  const container = scrollContainer.value;
+  if (!el || !container) return;
+
+  // Calculate target scroll position to center the active line
+  const containerHeight = container.clientHeight;
+  const lineTop = el.offsetTop;
+  const lineHeight = el.offsetHeight;
+  const targetScroll = lineTop - containerHeight / 2 + lineHeight / 2;
+
+  // Smooth scroll using CSS scroll-behavior or manual animation
+  container.scrollTo({
+    top: targetScroll,
+    behavior: 'smooth',
+  });
 }
 
 function syncLyrics() {

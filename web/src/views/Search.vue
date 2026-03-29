@@ -1,5 +1,9 @@
 <template>
   <div class="search-page">
+    <button class="back-btn" @click="$router.back()">
+      <Icon icon="mdi:arrow-left" />
+      返回
+    </button>
     <div class="search-header">
       <div class="search-input-wrap">
         <Icon icon="mdi:magnify" class="search-icon" />
@@ -89,6 +93,17 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  opacity: 0.7;
+  margin-bottom: 16px;
+  transition: opacity var(--transition-fast);
+  &:hover { opacity: 1; }
+}
+
 .search-header {
   margin-bottom: 24px;
 }

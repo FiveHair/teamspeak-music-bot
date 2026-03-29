@@ -18,6 +18,10 @@
       <button class="control-btn" @click="store.next()">
         <Icon icon="mdi:skip-next" />
       </button>
+      <button class="control-btn mode-btn" @click="cycleMode" :title="modeLabel">
+        <Icon :icon="modeIcon" />
+        <span class="mode-label">{{ modeLabel }}</span>
+      </button>
     </div>
 
     <div class="player-right">
@@ -65,6 +69,30 @@ function togglePlay() {
 function onVolumeChange(e: Event) {
   const target = e.target as HTMLInputElement;
   store.setVolume(parseInt(target.value));
+}
+
+const modeOrder = ['seq', 'loop', 'random', 'rloop'] as const;
+const modeIcons: Record<string, string> = {
+  seq: 'mdi:arrow-right',
+  loop: 'mdi:repeat',
+  random: 'mdi:shuffle',
+  rloop: 'mdi:shuffle-variant',
+};
+const modeLabels: Record<string, string> = {
+  seq: '顺序',
+  loop: '循环',
+  random: '随机',
+  rloop: '随机循环',
+};
+
+const currentMode = computed(() => activeBot.value?.playMode ?? 'seq');
+const modeIcon = computed(() => modeIcons[currentMode.value] ?? modeIcons.seq);
+const modeLabel = computed(() => modeLabels[currentMode.value] ?? modeLabels.seq);
+
+function cycleMode() {
+  const idx = modeOrder.indexOf(currentMode.value as typeof modeOrder[number]);
+  const next = modeOrder[(idx + 1) % modeOrder.length];
+  store.setMode(next);
 }
 </script>
 
@@ -119,6 +147,18 @@ function onVolumeChange(e: Event) {
   opacity: 0.7;
   transition: opacity var(--transition-fast);
   &:hover { opacity: 1; }
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 18px;
+}
+
+.mode-label {
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .play-btn {

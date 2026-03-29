@@ -1,6 +1,10 @@
 <template>
   <div class="lyrics-page" :style="bgStyle">
     <div class="lyrics-overlay" />
+    <button class="back-btn" @click="$router.back()">
+      <Icon icon="mdi:arrow-left" />
+      返回
+    </button>
 
     <div v-if="currentSong" class="lyrics-content">
       <div class="lyrics-left">
@@ -40,6 +44,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { Icon } from '@iconify/vue';
 import axios from 'axios';
 import { usePlayerStore } from '../stores/player.js';
 import CoverArt from '../components/CoverArt.vue';
@@ -173,6 +178,20 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(60px);
   -webkit-backdrop-filter: blur(60px);
+}
+
+.back-btn {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color var(--transition-fast);
+  &:hover { color: white; }
 }
 
 .lyrics-content {

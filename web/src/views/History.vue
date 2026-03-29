@@ -1,5 +1,9 @@
 <template>
   <div class="history-page">
+    <button class="back-btn" @click="$router.back()">
+      <Icon icon="mdi:arrow-left" />
+      返回
+    </button>
     <h1 class="page-title">播放历史</h1>
 
     <div v-if="loading" class="loading">加载中...</div>
@@ -24,6 +28,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { Icon } from '@iconify/vue';
 import axios from 'axios';
 import { usePlayerStore } from '../stores/player.js';
 import SongCard from '../components/SongCard.vue';
@@ -52,6 +57,17 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  opacity: 0.7;
+  margin-bottom: 16px;
+  transition: opacity var(--transition-fast);
+  &:hover { opacity: 1; }
+}
+
 .page-title {
   font-size: 28px;
   font-weight: 800;

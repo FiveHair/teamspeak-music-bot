@@ -1,11 +1,13 @@
 import { Router } from "express";
 import type { BotManager } from "../../bot/manager.js";
+import type { BotDatabase } from "../../data/database.js";
 import type { Logger } from "../../logger.js";
 import { parseCommand } from "../../bot/commands.js";
 
 export function createPlayerRouter(
   botManager: BotManager,
-  logger: Logger
+  logger: Logger,
+  database?: BotDatabase
 ): Router {
   const router = Router();
 
@@ -132,8 +134,23 @@ export function createPlayerRouter(
   });
 
   router.get("/:botId/history", (req, res) => {
-    // Will be wired when database access is available through bot
-    res.json({ history: [] });
+    if (!database) {
+      res.json({ history: [] });
+      return;
+    }
+    const limit = parseInt(req.query.limit as string) || 50;
+    const records = database.getPlayHistory(req.params.botId, limit);
+    const history = records.map((r) => ({
+      id: r.songId,
+      name: r.songName,
+      artist: r.artist,
+      album: r.album,
+      duration: 0,
+      coverUrl: r.coverUrl,
+      platform: r.platform,
+      playedAt: r.playedAt,
+    }));
+    res.json({ history });
   });
 
   return router;

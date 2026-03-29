@@ -46,7 +46,7 @@ export function createWebServer(options: WebServerOptions): WebServer {
     "/api/music",
     createMusicRouter(options.neteaseProvider, options.qqProvider, logger)
   );
-  app.use("/api/player", createPlayerRouter(options.botManager, logger));
+  app.use("/api/player", createPlayerRouter(options.botManager, logger, options.database));
   app.use(
     "/api/auth",
     createAuthRouter(options.neteaseProvider, options.qqProvider, logger, options.cookieStore)

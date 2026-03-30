@@ -38,22 +38,19 @@ export class BiliBiliProvider implements MusicProvider {
     });
   }
 
-  /** Fetch buvid3 cookie from bilibili.com (required by search API) */
+  /** Fetch buvid3 via SPI API (required by search API to avoid 412) */
   private async ensureBuvidCookie(): Promise<void> {
     if (this.buvidInitialized) return;
     this.buvidInitialized = true;
     try {
-      const res = await axios.get("https://www.bilibili.com", {
-        headers: BILIBILI_HEADERS,
-        maxRedirects: 0,
-        validateStatus: (s) => s < 400,
-        timeout: 10000,
-      });
-      const cookies = res.headers["set-cookie"];
-      if (cookies) {
-        this.buvidCookie = cookies
-          .map((c: string) => c.split(";")[0])
-          .join("; ");
+      const res = await axios.get(
+        "https://api.bilibili.com/x/frontend/finger/spi",
+        { headers: BILIBILI_HEADERS, timeout: 10000 }
+      );
+      const b3 = res.data?.data?.b_3;
+      const b4 = res.data?.data?.b_4;
+      if (b3) {
+        this.buvidCookie = `buvid3=${b3}; buvid4=${b4 ?? ""}`;
       }
     } catch {
       // If it fails, continue without — view/playurl APIs work without buvid

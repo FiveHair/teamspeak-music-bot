@@ -1,7 +1,7 @@
 <template>
   <div class="lyrics-page" :style="bgStyle">
     <div class="lyrics-overlay" />
-    <button class="back-btn" @click="$router.back()">
+    <button class="back-btn" @click="goBack">
       <Icon icon="mdi:arrow-left" />
       返回
     </button>
@@ -46,13 +46,23 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { Icon } from '@iconify/vue';
 import axios from 'axios';
 import { usePlayerStore } from '../stores/player.js';
 import CoverArt from '../components/CoverArt.vue';
 
+const router = useRouter();
 const store = usePlayerStore();
 const currentSong = computed(() => store.currentSong);
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/');
+  }
+}
 
 interface LyricLine {
   time: number;

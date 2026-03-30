@@ -89,7 +89,12 @@ const currentSong = computed(() => store.currentSong);
 
 function toggleLyrics() {
   if (route.path === '/lyrics') {
-    router.back();
+    // Go back if there's history, otherwise go home
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/');
+    }
   } else {
     router.push('/lyrics');
   }

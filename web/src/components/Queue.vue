@@ -2,19 +2,19 @@
   <div class="queue-panel" :class="{ open }">
     <div class="queue-header">
       <h3 class="queue-title">播放队列</h3>
-      <span class="queue-count">{{ store.queue.length }} 首</span>
+      <span class="queue-count">{{ botQueue.length }} 首</span>
       <button class="close-btn" @click="$emit('close')">
         <Icon icon="mdi:close" />
       </button>
     </div>
 
-    <div v-if="store.queue.length === 0" class="queue-empty">
+    <div v-if="botQueue.length === 0" class="queue-empty">
       队列为空
     </div>
 
     <div v-else class="queue-list">
       <div
-        v-for="(song, i) in store.queue"
+        v-for="(song, i) in botQueue"
         :key="`${song.id}-${i}`"
         class="queue-item"
         :class="{ active: store.currentSong?.id === song.id }"
@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue';
+import { watch, computed } from 'vue';
 import { Icon } from '@iconify/vue';
 import axios from 'axios';
 import { usePlayerStore } from '../stores/player.js';
@@ -49,6 +49,7 @@ defineEmits<{
 }>();
 
 const store = usePlayerStore();
+const botQueue = computed(() => store.queue);
 
 // Fetch queue when panel opens
 watch(() => props.open, (isOpen) => {

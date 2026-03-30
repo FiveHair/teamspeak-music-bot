@@ -30,10 +30,10 @@ export function useWebSocket() {
         case 'stateChange':
           store.updateBotStatus(data.botId, data.status);
           if (data.queue) {
-            store.setQueue(data.queue);
+            store.setQueue(data.botId, data.queue);
           } else {
-            // Queue not included in event; refresh it
-            store.fetchQueue();
+            // Queue not included in event; refresh for this specific bot
+            store.fetchQueueForBot(data.botId);
           }
           break;
         case 'botConnected':

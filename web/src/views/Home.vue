@@ -1,18 +1,5 @@
 <template>
   <div class="home">
-    <!-- Bot Instance Selector -->
-    <div class="bot-selector" v-if="store.bots.length > 1">
-      <button
-        v-for="bot in store.bots"
-        :key="bot.id"
-        class="bot-tab"
-        :class="{ active: bot.id === store.activeBotId }"
-        @click="store.setActiveBotId(bot.id)"
-      >
-        {{ bot.name }}
-      </button>
-    </div>
-
     <!-- Search Bar -->
     <div class="search-bar" @click="$router.push('/search')">
       <Icon icon="mdi:magnify" class="search-icon" />
@@ -166,28 +153,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.bot-selector {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.bot-tab {
-  padding: 8px 20px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--hover-bg);
-  opacity: 0.6;
-  transition: all var(--transition-fast);
-
-  &.active {
-    background: var(--color-primary);
-    color: white;
-    opacity: 1;
-  }
-}
-
 .search-bar {
   display: flex;
   align-items: center;

@@ -28,7 +28,10 @@
         <CoverArt :url="currentSong.coverUrl" :size="40" />
         <div class="song-info">
           <div class="song-name">{{ currentSong.name }}</div>
-          <div class="song-artist">{{ currentSong.artist }}</div>
+          <div class="song-artist">
+            <span v-if="showBotBadge" class="bot-badge">{{ activeBot?.name }}</span>
+            {{ currentSong.artist }}
+          </div>
         </div>
       </div>
 
@@ -86,6 +89,7 @@ const showQueue = ref(false);
 const store = usePlayerStore();
 const activeBot = computed(() => store.activeBot);
 const currentSong = computed(() => store.currentSong);
+const showBotBadge = computed(() => store.bots.length > 1);
 
 function toggleLyrics() {
   if (route.path === '/lyrics') {
@@ -315,6 +319,22 @@ function cycleMode() {
 .song-artist {
   font-size: 11px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bot-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 5px;
+  background: rgba(51, 94, 234, 0.15);
+  color: var(--color-primary);
+  border-radius: 3px;
+  line-height: 16px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .player-center {

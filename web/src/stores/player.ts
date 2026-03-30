@@ -32,19 +32,27 @@ export interface PlaylistItem {
   platform: string;
 }
 
+interface TimingState {
+  serverElapsed: number;
+  serverSyncTime: number;
+  wasPlaying: boolean;
+}
+
 const HOME_CACHE_TTL = 5 * 60 * 1000;
+
+function defaultTiming(): TimingState {
+  return { serverElapsed: 0, serverSyncTime: 0, wasPlaying: false };
+}
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
     bots: [] as BotStatus[],
     activeBotId: null as string | null,
-    queue: [] as Song[],
+    /** Per-bot queues keyed by botId */
+    queues: {} as Record<string, Song[]>,
+    /** Per-bot timing state keyed by botId */
+    timings: {} as Record<string, TimingState>,
     theme: 'dark' as 'dark' | 'light',
-
-    // Server-synced elapsed time (ground truth)
-    serverElapsed: 0,       // last known server elapsed (seconds)
-    serverSyncTime: 0,      // Date.now() when we got serverElapsed
-    wasPlaying: false,       // was playing at last sync
 
     // Home page cache
     recommendPlaylists: [] as PlaylistItem[],
@@ -67,19 +75,47 @@ export const usePlayerStore = defineStore('player', {
     isPaused(): boolean {
       return this.activeBot?.paused ?? false;
     },
-    /** Interpolated elapsed: serverElapsed + time since last sync (if playing) */
+    /** Queue for the currently active bot */
+    queue(): Song[] {
+      const botId = this.activeBotId ?? this.bots[0]?.id;
+      if (!botId) return [];
+      return this.queues[botId] ?? [];
+    },
+    /** Interpolated elapsed for the active bot */
     elapsed(): number {
-      if (!this.activeBot?.currentSong) return 0;
+      const botId = this.activeBotId ?? this.bots[0]?.id;
+      if (!botId || !this.activeBot?.currentSong) return 0;
+      const timing = this.timings[botId] ?? defaultTiming();
       const maxDuration = this.activeBot.currentSong.duration || Infinity;
-      if (!this.wasPlaying || this.serverSyncTime === 0) return Math.min(this.serverElapsed, maxDuration);
-      if (this.isPaused) return Math.min(this.serverElapsed, maxDuration);
-      return Math.min(this.serverElapsed + (Date.now() - this.serverSyncTime) / 1000, maxDuration);
+      if (!timing.wasPlaying || timing.serverSyncTime === 0) return Math.min(timing.serverElapsed, maxDuration);
+      if (this.isPaused) return Math.min(timing.serverElapsed, maxDuration);
+      return Math.min(timing.serverElapsed + (Date.now() - timing.serverSyncTime) / 1000, maxDuration);
     },
   },
 
   actions: {
+    _getTiming(botId: string): TimingState {
+      if (!this.timings[botId]) {
+        this.timings[botId] = defaultTiming();
+      }
+      return this.timings[botId];
+    },
+
+    _setTiming(botId: string, partial: Partial<TimingState>) {
+      const current = this._getTiming(botId);
+      this.timings[botId] = { ...current, ...partial };
+    },
+
+    getQueueForBot(botId: string): Song[] {
+      return this.queues[botId] ?? [];
+    },
+
     setActiveBotId(id: string) {
       this.activeBotId = id;
+      // Fetch queue for newly active bot if we don't have it yet
+      if (!this.queues[id]) {
+        this.fetchQueue();
+      }
     },
 
     updateBotStatus(botId: string, status: BotStatus) {
@@ -93,29 +129,33 @@ export const usePlayerStore = defineStore('player', {
         this.bots.push(status);
       }
 
-      if (botId !== (this.activeBotId ?? this.bots[0]?.id)) return;
-
-      // Sync elapsed from server status
+      // Sync elapsed from server status — always per-bot
       if (status.elapsed !== undefined) {
-        this.serverElapsed = status.elapsed;
-        this.serverSyncTime = Date.now();
-        this.wasPlaying = status.playing && !status.paused;
+        this._setTiming(botId, {
+          serverElapsed: status.elapsed,
+          serverSyncTime: Date.now(),
+          wasPlaying: status.playing && !status.paused,
+        });
       }
 
-      // Song changed — reset
+      // Song changed — reset timing for this bot
       if (status.currentSong?.id !== prevSongId) {
-        this.serverElapsed = status.elapsed ?? 0;
-        this.serverSyncTime = Date.now();
-        this.wasPlaying = status.playing && !status.paused;
+        this._setTiming(botId, {
+          serverElapsed: status.elapsed ?? 0,
+          serverSyncTime: Date.now(),
+          wasPlaying: status.playing && !status.paused,
+        });
       }
     },
 
     removeBotStatus(botId: string) {
       this.bots = this.bots.filter((b) => b.id !== botId);
+      delete this.queues[botId];
+      delete this.timings[botId];
     },
 
-    setQueue(queue: Song[]) {
-      this.queue = queue;
+    setQueue(botId: string, queue: Song[]) {
+      this.queues[botId] = queue;
     },
 
     toggleTheme() {
@@ -134,23 +174,28 @@ export const usePlayerStore = defineStore('player', {
       if (!this.activeBotId && this.bots.length > 0) {
         this.activeBotId = this.bots[0].id;
       }
-      // Sync elapsed from first status
-      const bot = this.activeBot;
-      if (bot?.elapsed !== undefined) {
-        this.serverElapsed = bot.elapsed;
-        this.serverSyncTime = Date.now();
-        this.wasPlaying = bot.playing && !bot.paused;
+      // Sync elapsed from each bot's status
+      for (const bot of this.bots) {
+        if (bot.elapsed !== undefined) {
+          this._setTiming(bot.id, {
+            serverElapsed: bot.elapsed,
+            serverSyncTime: Date.now(),
+            wasPlaying: bot.playing && !bot.paused,
+          });
+        }
       }
     },
 
-    /** Poll server for real elapsed time */
+    /** Poll server for real elapsed time for active bot */
     async syncElapsed() {
       if (!this.activeBotId || !this.isPlaying) return;
       try {
         const res = await axios.get(`/api/player/${this.activeBotId}/elapsed`);
-        this.serverElapsed = res.data.elapsed;
-        this.serverSyncTime = Date.now();
-        this.wasPlaying = true;
+        this._setTiming(this.activeBotId, {
+          serverElapsed: res.data.elapsed,
+          serverSyncTime: Date.now(),
+          wasPlaying: true,
+        });
       } catch {
         // ignore
       }
@@ -160,15 +205,27 @@ export const usePlayerStore = defineStore('player', {
       if (!this.activeBotId) return;
       try {
         const res = await axios.get(`/api/player/${this.activeBotId}/queue`);
-        this.queue = res.data.queue ?? [];
+        this.queues[this.activeBotId] = res.data.queue ?? [];
+      } catch {
+        // ignore
+      }
+    },
+
+    async fetchQueueForBot(botId: string) {
+      try {
+        const res = await axios.get(`/api/player/${botId}/queue`);
+        this.queues[botId] = res.data.queue ?? [];
       } catch {
         // ignore
       }
     },
 
     _syncAfterAction() {
-      this.serverSyncTime = Date.now();
-      this.wasPlaying = true;
+      if (!this.activeBotId) return;
+      this._setTiming(this.activeBotId, {
+        serverSyncTime: Date.now(),
+        wasPlaying: true,
+      });
       // Sync from server after a short delay for accuracy
       setTimeout(() => this.syncElapsed(), 500);
     },
@@ -176,21 +233,21 @@ export const usePlayerStore = defineStore('player', {
     async playAtIndex(index: number) {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play-at`, { index });
-      this.serverElapsed = 0;
+      this._setTiming(this.activeBotId, { serverElapsed: 0 });
       this._syncAfterAction();
     },
 
     async play(query: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play`, { query, platform });
-      this.serverElapsed = 0;
+      this._setTiming(this.activeBotId, { serverElapsed: 0 });
       this._syncAfterAction();
     },
 
     async playById(songId: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play-by-id`, { songId, platform });
-      this.serverElapsed = 0;
+      this._setTiming(this.activeBotId, { serverElapsed: 0 });
       this._syncAfterAction();
     },
 
@@ -207,52 +264,58 @@ export const usePlayerStore = defineStore('player', {
     async playPlaylist(playlistId: string, platform = 'netease') {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/play-playlist`, { playlistId, platform });
-      this.serverElapsed = 0;
+      this._setTiming(this.activeBotId, { serverElapsed: 0 });
       this._syncAfterAction();
     },
 
     async pause() {
       if (!this.activeBotId) return;
       // Freeze elapsed at current interpolated value
-      this.serverElapsed = this.elapsed;
-      this.wasPlaying = false;
+      this._setTiming(this.activeBotId, {
+        serverElapsed: this.elapsed,
+        wasPlaying: false,
+      });
       await axios.post(`/api/player/${this.activeBotId}/pause`);
     },
 
     async resume() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/resume`);
-      this.serverSyncTime = Date.now();
-      this.wasPlaying = true;
+      this._setTiming(this.activeBotId, {
+        serverSyncTime: Date.now(),
+        wasPlaying: true,
+      });
       setTimeout(() => this.syncElapsed(), 300);
     },
 
     async next() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/next`);
-      this.serverElapsed = 0;
+      this._setTiming(this.activeBotId, { serverElapsed: 0 });
       this._syncAfterAction();
     },
 
     async prev() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/prev`);
-      this.serverElapsed = 0;
+      this._setTiming(this.activeBotId, { serverElapsed: 0 });
       this._syncAfterAction();
     },
 
     async stop() {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/stop`);
-      this.serverElapsed = 0;
-      this.serverSyncTime = 0;
-      this.wasPlaying = false;
+      this._setTiming(this.activeBotId, {
+        serverElapsed: 0,
+        serverSyncTime: 0,
+        wasPlaying: false,
+      });
     },
 
     async seek(position: number) {
       if (!this.activeBotId) return;
       await axios.post(`/api/player/${this.activeBotId}/seek`, { position });
-      this.serverElapsed = position;
+      this._setTiming(this.activeBotId, { serverElapsed: position });
       this._syncAfterAction();
     },
 

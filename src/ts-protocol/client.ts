@@ -56,11 +56,33 @@ export class TS3Client extends EventEmitter {
     const addr = `${this.options.host}:${this.options.port}`;
     this.logger.info({ addr }, "Connecting to TeamSpeak server (full client protocol)");
 
+    // Throttle repeated "udp send error" warnings (fires every 20ms during playback if UDP breaks)
+    let udpErrorCount = 0;
+    let udpErrorTimer: ReturnType<typeof setTimeout> | null = null;
+    const throttledWarn = (msg: string, ...args: unknown[]) => {
+      if (typeof msg === "string" && msg.includes("udp send error")) {
+        udpErrorCount++;
+        if (udpErrorCount === 1) {
+          this.logger.warn(msg);
+          // After 2 seconds, log a summary and reset
+          udpErrorTimer = setTimeout(() => {
+            if (udpErrorCount > 1) {
+              this.logger.warn(`udp send error (repeated ${udpErrorCount} times, connection may be lost)`);
+            }
+            udpErrorCount = 0;
+            udpErrorTimer = null;
+          }, 2000);
+        }
+        return;
+      }
+      this.logger.warn(msg);
+    };
+
     this.client = new TS3FullClient(this.identity, addr, this.options.nickname, {
       logger: {
         debug: (msg) => this.logger.debug(msg),
         info: (msg) => this.logger.info(msg),
-        warn: (msg) => this.logger.warn(msg),
+        warn: throttledWarn,
         error: (msg) => this.logger.error(msg),
       },
     });

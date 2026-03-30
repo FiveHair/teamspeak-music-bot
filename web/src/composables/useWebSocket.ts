@@ -40,7 +40,21 @@ export function useWebSocket() {
           store.updateBotStatus(data.botId, data.status);
           break;
         case 'botDisconnected':
-          store.removeBotStatus(data.botId);
+          // Bot disconnected from TS3 but still exists — update status, don't remove
+          if (data.status) {
+            store.updateBotStatus(data.botId, data.status);
+          } else {
+            const existing = store.bots.find((b) => b.id === data.botId);
+            if (existing) {
+              store.updateBotStatus(data.botId, {
+                ...existing,
+                connected: false,
+                playing: false,
+                paused: false,
+                currentSong: null,
+              });
+            }
+          }
           break;
       }
     };

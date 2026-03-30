@@ -65,7 +65,11 @@ export function setupWebSocket(
     };
 
     const onDisconnected = () => {
-      broadcast({ type: "botDisconnected", botId: bot.id });
+      broadcast({
+        type: "botDisconnected",
+        botId: bot.id,
+        status: bot.getStatus(),
+      });
     };
 
     bot.on("stateChange", onStateChange);

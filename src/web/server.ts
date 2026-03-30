@@ -19,6 +19,7 @@ export interface WebServerOptions {
   botManager: BotManager;
   neteaseProvider: MusicProvider;
   qqProvider: MusicProvider;
+  bilibiliProvider: MusicProvider;
   database: BotDatabase;
   config: BotConfig;
   logger: Logger;
@@ -44,15 +45,15 @@ export function createWebServer(options: WebServerOptions): WebServer {
   );
   app.use(
     "/api/music",
-    createMusicRouter(options.neteaseProvider, options.qqProvider, logger)
+    createMusicRouter(options.neteaseProvider, options.qqProvider, options.bilibiliProvider, logger)
   );
   app.use("/api/player", createPlayerRouter(
     options.botManager, logger, options.database,
-    options.neteaseProvider, options.qqProvider,
+    options.neteaseProvider, options.qqProvider, options.bilibiliProvider,
   ));
   app.use(
     "/api/auth",
-    createAuthRouter(options.neteaseProvider, options.qqProvider, logger, options.cookieStore)
+    createAuthRouter(options.neteaseProvider, options.qqProvider, options.bilibiliProvider, logger, options.cookieStore)
   );
 
   app.get("/api/health", (_req, res) => {

@@ -23,6 +23,7 @@ export class BotManager {
   private bots = new Map<string, BotInstance>();
   private neteaseProvider: MusicProvider;
   private qqProvider: MusicProvider;
+  private bilibiliProvider: MusicProvider;
   private database: BotDatabase;
   private config: BotConfig;
   private logger: Logger;
@@ -30,12 +31,14 @@ export class BotManager {
   constructor(
     neteaseProvider: MusicProvider,
     qqProvider: MusicProvider,
+    bilibiliProvider: MusicProvider,
     database: BotDatabase,
     config: BotConfig,
     logger: Logger
   ) {
     this.neteaseProvider = neteaseProvider;
     this.qqProvider = qqProvider;
+    this.bilibiliProvider = bilibiliProvider;
     this.database = database;
     this.config = config;
     this.logger = logger;
@@ -57,6 +60,7 @@ export class BotManager {
       },
       neteaseProvider: this.neteaseProvider,
       qqProvider: this.qqProvider,
+      bilibiliProvider: this.bilibiliProvider,
       database: this.database,
       config: this.config,
       logger: this.logger,
@@ -125,6 +129,7 @@ export class BotManager {
         },
         neteaseProvider: this.neteaseProvider,
         qqProvider: this.qqProvider,
+        bilibiliProvider: this.bilibiliProvider,
         database: this.database,
         config: this.config,
         logger: this.logger,

@@ -7,8 +7,8 @@
         <span class="song-name">{{ song.name }}</span>
         <span
           class="platform-badge"
-          :class="song.platform === 'qq' ? 'badge-qq' : 'badge-netease'"
-        >{{ song.platform === 'qq' ? 'QQ' : '网易云' }}</span>
+          :class="song.platform === 'bilibili' ? 'badge-bilibili' : song.platform === 'qq' ? 'badge-qq' : 'badge-netease'"
+        >{{ song.platform === 'bilibili' ? 'B站' : song.platform === 'qq' ? 'QQ' : '网易云' }}</span>
       </div>
       <div class="song-artist">{{ song.artist }}</div>
     </div>
@@ -111,6 +111,11 @@ function formatDuration(seconds: number): string {
 .badge-qq {
   background: rgba(18, 183, 106, 0.15);
   color: #12b76a;
+}
+
+.badge-bilibili {
+  background: rgba(0, 161, 214, 0.15);
+  color: #00a1d6;
 }
 
 .song-artist {

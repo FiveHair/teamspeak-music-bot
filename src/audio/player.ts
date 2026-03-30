@@ -58,11 +58,21 @@ export class AudioPlayer extends EventEmitter {
 
     this.logger.info({ url: url.slice(0, 80), seek: seekSeconds }, "Starting playback");
 
-    const args = [
+    const args: string[] = [];
+
+    // BiliBili CDN requires Referer header for audio playback
+    if (url.includes("bilivideo") || url.includes("bilibili")) {
+      args.push(
+        "-headers",
+        "Referer: https://www.bilibili.com\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n"
+      );
+    }
+
+    args.push(
       "-reconnect", "1",
       "-reconnect_streamed", "1",
       "-reconnect_delay_max", "5",
-    ];
+    );
     if (seekSeconds > 0) {
       args.push("-ss", String(seekSeconds));
     }

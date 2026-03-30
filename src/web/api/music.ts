@@ -5,11 +5,13 @@ import type { Logger } from "../../logger.js";
 export function createMusicRouter(
   neteaseProvider: MusicProvider,
   qqProvider: MusicProvider,
+  bilibiliProvider: MusicProvider,
   logger: Logger
 ): Router {
   const router = Router();
 
   function getProvider(platform?: string): MusicProvider {
+    if (platform === "bilibili") return bilibiliProvider;
     return platform === "qq" ? qqProvider : neteaseProvider;
   }
 
@@ -40,9 +42,10 @@ export function createMusicRouter(
         return;
       }
       const parsedLimit = parseInt(limit as string) || 20;
-      const [neteaseResult, qqResult] = await Promise.allSettled([
+      const [neteaseResult, qqResult, bilibiliResult] = await Promise.allSettled([
         neteaseProvider.search(q as string, parsedLimit),
         qqProvider.search(q as string, parsedLimit),
+        bilibiliProvider.search(q as string, parsedLimit),
       ]);
 
       const songs = [
@@ -50,6 +53,7 @@ export function createMusicRouter(
           ? neteaseResult.value.songs
           : []),
         ...(qqResult.status === "fulfilled" ? qqResult.value.songs : []),
+        ...(bilibiliResult.status === "fulfilled" ? bilibiliResult.value.songs : []),
       ];
 
       res.json({ songs });
@@ -198,6 +202,7 @@ export function createMusicRouter(
     res.json({
       netease: neteaseProvider.getQuality(),
       qq: qqProvider.getQuality(),
+      bilibili: bilibiliProvider.getQuality(),
     });
   });
 
@@ -213,6 +218,9 @@ export function createMusicRouter(
     }
     if (!platform || platform === "qq") {
       qqProvider.setQuality(quality);
+    }
+    if (!platform || platform === "bilibili") {
+      bilibiliProvider.setQuality(quality);
     }
     logger.info({ quality, platform }, "Audio quality changed");
     res.json({ success: true, quality });

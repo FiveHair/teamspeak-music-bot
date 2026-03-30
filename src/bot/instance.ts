@@ -22,6 +22,7 @@ export interface BotInstanceOptions {
   tsOptions: TS3ClientOptions;
   neteaseProvider: MusicProvider;
   qqProvider: MusicProvider;
+  bilibiliProvider: MusicProvider;
   database: BotDatabase;
   config: BotConfig;
   logger: Logger;
@@ -49,6 +50,7 @@ export class BotInstance extends EventEmitter {
   private queue: PlayQueue;
   private neteaseProvider: MusicProvider;
   private qqProvider: MusicProvider;
+  private bilibiliProvider: MusicProvider;
   private database: BotDatabase;
   private config: BotConfig;
   private logger: Logger;
@@ -62,6 +64,7 @@ export class BotInstance extends EventEmitter {
     this.name = options.name;
     this.neteaseProvider = options.neteaseProvider;
     this.qqProvider = options.qqProvider;
+    this.bilibiliProvider = options.bilibiliProvider;
     this.database = options.database;
     this.config = options.config;
     this.logger = options.logger.child({ botId: this.id });
@@ -207,12 +210,15 @@ export class BotInstance extends EventEmitter {
     }
   }
 
-  getProviderFor(platform: "netease" | "qq"): MusicProvider {
+  getProviderFor(platform: "netease" | "qq" | "bilibili"): MusicProvider {
+    if (platform === "bilibili") return this.bilibiliProvider;
     return platform === "qq" ? this.qqProvider : this.neteaseProvider;
   }
 
-  private getProvider(useQQ: boolean): MusicProvider {
-    return useQQ ? this.qqProvider : this.neteaseProvider;
+  private getProvider(flags: Set<string>): MusicProvider {
+    if (flags.has("b")) return this.bilibiliProvider;
+    if (flags.has("q")) return this.qqProvider;
+    return this.neteaseProvider;
   }
 
   /** Resolve URL for a song and start playing it. Skips to next if URL fails. */
@@ -245,7 +251,7 @@ export class BotInstance extends EventEmitter {
 
   private async cmdPlay(cmd: ParsedCommand): Promise<string> {
     if (!cmd.args) return "Usage: !play <song name or URL>";
-    const provider = this.getProvider(cmd.flags.has("q"));
+    const provider = this.getProvider(cmd.flags);
     const result = await provider.search(cmd.args, 1);
     if (result.songs.length === 0)
       return `No results found for: ${cmd.args}`;
@@ -262,7 +268,7 @@ export class BotInstance extends EventEmitter {
 
   private async cmdAdd(cmd: ParsedCommand): Promise<string> {
     if (!cmd.args) return "Usage: !add <song name>";
-    const provider = this.getProvider(cmd.flags.has("q"));
+    const provider = this.getProvider(cmd.flags);
     const result = await provider.search(cmd.args, 1);
     if (result.songs.length === 0)
       return `No results found for: ${cmd.args}`;
@@ -367,7 +373,7 @@ export class BotInstance extends EventEmitter {
 
   private async cmdPlaylist(cmd: ParsedCommand): Promise<string> {
     if (!cmd.args) return "Usage: !playlist <playlist ID or URL>";
-    const provider = this.getProvider(cmd.flags.has("q"));
+    const provider = this.getProvider(cmd.flags);
     const id = this.extractId(cmd.args);
     const songs = await provider.getPlaylistSongs(id);
     if (songs.length === 0) return "Playlist is empty or not found";
@@ -384,7 +390,7 @@ export class BotInstance extends EventEmitter {
 
   private async cmdAlbum(cmd: ParsedCommand): Promise<string> {
     if (!cmd.args) return "Usage: !album <album ID>";
-    const provider = this.getProvider(cmd.flags.has("q"));
+    const provider = this.getProvider(cmd.flags);
     const songs = await provider.getAlbumSongs(cmd.args);
     if (songs.length === 0) return "Album is empty or not found";
 
@@ -437,7 +443,7 @@ export class BotInstance extends EventEmitter {
   private async cmdLyrics(): Promise<string> {
     const song = this.queue.current();
     if (!song) return "Nothing is playing";
-    const provider = this.getProvider(song.platform === "qq");
+    const provider = this.getProviderFor(song.platform);
     const lyrics = await provider.getLyrics(song.id);
     if (lyrics.length === 0) return "No lyrics available";
     const lines = lyrics.slice(0, 10).map((l) => l.text);
@@ -461,6 +467,7 @@ export class BotInstance extends EventEmitter {
       "TSMusicBot Commands:",
       `${p}play <song>  — Search and play`,
       `${p}play -q <song> — Search from QQ Music`,
+      `${p}play -b <song> — Search from BiliBili`,
       `${p}add <song>   — Add to queue`,
       `${p}pause/resume — Pause/resume`,
       `${p}next/prev    — Next/previous`,

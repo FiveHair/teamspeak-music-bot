@@ -11,6 +11,7 @@ export function createPlayerRouter(
   database?: BotDatabase,
   neteaseProvider?: MusicProvider,
   qqProvider?: MusicProvider,
+  bilibiliProvider?: MusicProvider,
 ): Router {
   const router = Router();
 
@@ -32,7 +33,7 @@ export function createPlayerRouter(
         res.status(400).json({ error: "query is required" });
         return;
       }
-      const flags = platform === "qq" ? "-q" : "";
+      const flags = platform === "bilibili" ? "-b" : platform === "qq" ? "-q" : "";
       const cmd = parseCommand(`!play ${flags} ${query}`.trim(), "!");
       if (!cmd) {
         res.status(400).json({ error: "Invalid command" });
@@ -49,7 +50,7 @@ export function createPlayerRouter(
     try {
       const bot = (req as any).bot;
       const { query, platform } = req.body;
-      const flags = platform === "qq" ? "-q" : "";
+      const flags = platform === "bilibili" ? "-b" : platform === "qq" ? "-q" : "";
       const cmd = parseCommand(`!add ${flags} ${query}`.trim(), "!");
       if (!cmd) {
         res.status(400).json({ error: "Invalid command" });
@@ -173,7 +174,7 @@ export function createPlayerRouter(
     try {
       const bot = (req as any).bot;
       const { playlistId, platform } = req.body;
-      const flags = platform === "qq" ? "-q" : "";
+      const flags = platform === "bilibili" ? "-b" : platform === "qq" ? "-q" : "";
       const cmd = parseCommand(
         `!playlist ${flags} ${playlistId}`.trim(),
         "!"
@@ -191,7 +192,7 @@ export function createPlayerRouter(
     try {
       const bot = (req as any).bot;
       const { playlistId, platform } = req.body;
-      const provider = platform === "qq" ? qqProvider : neteaseProvider;
+      const provider = platform === "bilibili" ? bilibiliProvider : platform === "qq" ? qqProvider : neteaseProvider;
       if (!provider) {
         res.status(500).json({ error: "Provider not available" });
         return;
@@ -238,7 +239,7 @@ export function createPlayerRouter(
     try {
       const bot = (req as any).bot;
       const { songId, platform } = req.body;
-      const provider = platform === "qq" ? qqProvider : neteaseProvider;
+      const provider = platform === "bilibili" ? bilibiliProvider : platform === "qq" ? qqProvider : neteaseProvider;
       if (!provider) {
         res.status(500).json({ error: "Provider not available" });
         return;
@@ -272,7 +273,7 @@ export function createPlayerRouter(
     try {
       const bot = (req as any).bot;
       const { songId, platform } = req.body;
-      const provider = platform === "qq" ? qqProvider : neteaseProvider;
+      const provider = platform === "bilibili" ? bilibiliProvider : platform === "qq" ? qqProvider : neteaseProvider;
       if (!provider) {
         res.status(500).json({ error: "Provider not available" });
         return;

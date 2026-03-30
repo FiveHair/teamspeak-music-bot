@@ -193,6 +193,75 @@
           <button class="btn-primary btn-save" @click="saveCookie('qq')">保存Cookie</button>
         </div>
       </div>
+      <!-- BiliBili -->
+      <div class="account-card">
+        <div class="account-header">
+          <Icon icon="mdi:video-outline" class="account-icon bilibili-icon" />
+          <div class="account-info">
+            <div class="account-name">哔哩哔哩</div>
+            <div class="account-status" :class="{ logged: bilibiliAuth.loggedIn }">
+              {{ bilibiliAuth.loggedIn ? `已登录: ${bilibiliAuth.nickname}` : '未登录' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="login-methods">
+          <button
+            class="login-btn"
+            :class="{ active: bilibiliLoginMode === 'qr' }"
+            @click="startQrLogin('bilibili')"
+            :disabled="bilibiliQr.loading"
+          >
+            <Icon icon="mdi:qrcode" />
+            扫码登录
+          </button>
+          <button
+            class="login-btn"
+            :class="{ active: bilibiliLoginMode === 'cookie' }"
+            @click="bilibiliLoginMode = 'cookie'"
+          >
+            <Icon icon="mdi:cookie" />
+            Cookie登录
+          </button>
+        </div>
+
+        <!-- QR Code -->
+        <div v-if="bilibiliLoginMode === 'qr'" class="qr-section">
+          <div v-if="bilibiliQr.loading" class="qr-loading">
+            <Icon icon="mdi:loading" class="spin" />
+            生成二维码中...
+          </div>
+          <div v-else-if="bilibiliQr.dataUrl" class="qr-wrap">
+            <img :src="bilibiliQr.dataUrl" class="qr-image" alt="QR Code" />
+            <div class="qr-status" :class="bilibiliQr.status">
+              <template v-if="bilibiliQr.status === 'waiting'">
+                <Icon icon="mdi:cellphone" /> 请使用哔哩哔哩APP扫码
+              </template>
+              <template v-else-if="bilibiliQr.status === 'scanned'">
+                <Icon icon="mdi:check" /> 已扫码，请在手机上确认
+              </template>
+              <template v-else-if="bilibiliQr.status === 'confirmed'">
+                <Icon icon="mdi:check-circle" /> 登录成功!
+              </template>
+              <template v-else-if="bilibiliQr.status === 'expired'">
+                <Icon icon="mdi:refresh" /> 二维码已过期
+                <button class="btn-link" @click="startQrLogin('bilibili')">重新生成</button>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cookie -->
+        <div v-if="bilibiliLoginMode === 'cookie'" class="cookie-section">
+          <textarea
+            v-model="bilibiliCookie"
+            class="textarea"
+            placeholder="粘贴哔哩哔哩Cookie..."
+            rows="3"
+          />
+          <button class="btn-primary btn-save" @click="saveCookie('bilibili')">保存Cookie</button>
+        </div>
+      </div>
     </section>
 
     <!-- Audio Quality -->
@@ -248,6 +317,7 @@ const newBotName = ref('');
 const newBotServer = ref('');
 const neteaseCookie = ref('');
 const qqCookie = ref('');
+const bilibiliCookie = ref('');
 const commandPrefix = ref('!');
 
 // Audio quality
@@ -278,10 +348,12 @@ async function setQuality(q: string) {
 // Login mode: 'qr' | 'cookie' | null
 const neteaseLoginMode = ref<'qr' | 'cookie' | null>(null);
 const qqLoginMode = ref<'qr' | 'cookie' | null>(null);
+const bilibiliLoginMode = ref<'qr' | 'cookie' | null>(null);
 
 // Auth status
 const neteaseAuth = reactive({ loggedIn: false, nickname: '', avatarUrl: '' });
 const qqAuth = reactive({ loggedIn: false, nickname: '', avatarUrl: '' });
+const bilibiliAuth = reactive({ loggedIn: false, nickname: '', avatarUrl: '' });
 
 // QR state
 interface QrState {
@@ -298,19 +370,25 @@ const neteaseQr = reactive<QrState>({
 const qqQr = reactive<QrState>({
   loading: false, dataUrl: '', key: '', status: 'waiting', pollTimer: null,
 });
+const bilibiliQr = reactive<QrState>({
+  loading: false, dataUrl: '', key: '', status: 'waiting', pollTimer: null,
+});
 
 function getQrState(platform: string): QrState {
+  if (platform === 'bilibili') return bilibiliQr;
   return platform === 'netease' ? neteaseQr : qqQr;
 }
 
 async function checkAuthStatus() {
   try {
-    const [nRes, qRes] = await Promise.all([
+    const [nRes, qRes, bRes] = await Promise.all([
       axios.get('/api/auth/status', { params: { platform: 'netease' } }),
       axios.get('/api/auth/status', { params: { platform: 'qq' } }),
+      axios.get('/api/auth/status', { params: { platform: 'bilibili' } }),
     ]);
     Object.assign(neteaseAuth, nRes.data);
     Object.assign(qqAuth, qRes.data);
+    Object.assign(bilibiliAuth, bRes.data);
   } catch {
     // API not ready
   }
@@ -319,6 +397,7 @@ async function checkAuthStatus() {
 async function startQrLogin(platform: string) {
   const qr = getQrState(platform);
   if (platform === 'netease') neteaseLoginMode.value = 'qr';
+  else if (platform === 'bilibili') bilibiliLoginMode.value = 'qr';
   else qqLoginMode.value = 'qr';
 
   // Stop existing poll
@@ -412,7 +491,7 @@ async function toggleBot(botId: string, connected: boolean) {
 }
 
 async function saveCookie(platform: string) {
-  const cookie = platform === 'netease' ? neteaseCookie.value : qqCookie.value;
+  const cookie = platform === 'bilibili' ? bilibiliCookie.value : platform === 'netease' ? neteaseCookie.value : qqCookie.value;
   if (!cookie) return;
   try {
     await axios.post('/api/auth/cookie', { platform, cookie });
@@ -434,6 +513,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (neteaseQr.pollTimer) clearInterval(neteaseQr.pollTimer);
   if (qqQr.pollTimer) clearInterval(qqQr.pollTimer);
+  if (bilibiliQr.pollTimer) clearInterval(bilibiliQr.pollTimer);
 });
 </script>
 
@@ -563,6 +643,10 @@ onUnmounted(() => {
 .account-icon {
   font-size: 28px;
   color: var(--color-primary);
+
+  &.bilibili-icon {
+    color: #00a1d6;
+  }
 }
 
 .account-name {

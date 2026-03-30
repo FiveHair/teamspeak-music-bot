@@ -6,12 +6,14 @@ import type { Logger } from "../../logger.js";
 export function createAuthRouter(
   neteaseProvider: MusicProvider,
   qqProvider: MusicProvider,
+  bilibiliProvider: MusicProvider,
   logger: Logger,
   cookieStore?: CookieStore
 ): Router {
   const router = Router();
 
   function getProvider(platform?: string): MusicProvider {
+    if (platform === "bilibili") return bilibiliProvider;
     return platform === "qq" ? qqProvider : neteaseProvider;
   }
 
@@ -55,7 +57,8 @@ export function createAuthRouter(
       // When confirmed, persist cookie
       if (status === "confirmed") {
         const cookie = provider.getCookie();
-        const plat = (platform as string) === "qq" ? "qq" as const : "netease" as const;
+        const plat = (platform as string) === "bilibili" ? "bilibili" as const
+          : (platform as string) === "qq" ? "qq" as const : "netease" as const;
         if (cookie && cookieStore) {
           cookieStore.save(plat, cookie);
           logger.info({ platform: plat }, "Cookie persisted to disk");
@@ -118,7 +121,8 @@ export function createAuthRouter(
     }
     const provider = getProvider(platform);
     provider.setCookie(cookie);
-    const plat = platform === "qq" ? "qq" as const : "netease" as const;
+    const plat = platform === "bilibili" ? "bilibili" as const
+      : platform === "qq" ? "qq" as const : "netease" as const;
     if (cookieStore) {
       cookieStore.save(plat, cookie);
     }

@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 export interface CookieStore {
-  save(platform: "netease" | "qq", cookie: string): void;
-  load(platform: "netease" | "qq"): string;
+  save(platform: "netease" | "qq" | "bilibili", cookie: string): void;
+  load(platform: "netease" | "qq" | "bilibili"): string;
 }
 
 export function createCookieStore(cookieDir: string): CookieStore {
@@ -12,7 +12,7 @@ export function createCookieStore(cookieDir: string): CookieStore {
   }
 
   return {
-    save(platform: "netease" | "qq", cookie: string): void {
+    save(platform: "netease" | "qq" | "bilibili", cookie: string): void {
       const filePath = path.join(cookieDir, `${platform}.json`);
       fs.writeFileSync(
         filePath,
@@ -21,7 +21,7 @@ export function createCookieStore(cookieDir: string): CookieStore {
       );
     },
 
-    load(platform: "netease" | "qq"): string {
+    load(platform: "netease" | "qq" | "bilibili"): string {
       const filePath = path.join(cookieDir, `${platform}.json`);
       if (!fs.existsSync(filePath)) return "";
       try {

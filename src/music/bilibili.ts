@@ -22,6 +22,8 @@ export class BiliBiliProvider implements MusicProvider {
   private cookie = "";
   private quality = "high";
   private cidCache = new Map<string, number>();
+  private buvidCookie = ""; // anonymous session cookie (buvid3) for anti-412
+  private buvidInitialized = false;
 
   constructor() {
     this.api = axios.create({
@@ -36,8 +38,31 @@ export class BiliBiliProvider implements MusicProvider {
     });
   }
 
+  /** Fetch buvid3 cookie from bilibili.com (required by search API) */
+  private async ensureBuvidCookie(): Promise<void> {
+    if (this.buvidInitialized) return;
+    this.buvidInitialized = true;
+    try {
+      const res = await axios.get("https://www.bilibili.com", {
+        headers: BILIBILI_HEADERS,
+        maxRedirects: 0,
+        validateStatus: (s) => s < 400,
+        timeout: 10000,
+      });
+      const cookies = res.headers["set-cookie"];
+      if (cookies) {
+        this.buvidCookie = cookies
+          .map((c: string) => c.split(";")[0])
+          .join("; ");
+      }
+    } catch {
+      // If it fails, continue without — view/playurl APIs work without buvid
+    }
+  }
+
   private get cookieHeaders(): Record<string, string> {
-    return this.cookie ? { Cookie: this.cookie } : {};
+    const combined = [this.buvidCookie, this.cookie].filter(Boolean).join("; ");
+    return combined ? { Cookie: combined } : {};
   }
 
   setQuality(quality: string): void {
@@ -68,6 +93,7 @@ export class BiliBiliProvider implements MusicProvider {
   }
 
   async search(query: string, limit = 20): Promise<SearchResult> {
+    await this.ensureBuvidCookie();
     const res = await this.api.get("/x/web-interface/search/type", {
       params: {
         search_type: "video",

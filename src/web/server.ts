@@ -67,7 +67,14 @@ export function createWebServer(options: WebServerOptions): WebServer {
     });
   }
 
+  server.on("error", (err) => {
+    logger.error({ err }, "HTTP server error");
+  });
+
   const wss = new WebSocketServer({ server, path: "/ws" });
+  wss.on("error", (err) => {
+    logger.error({ err }, "WebSocket server error");
+  });
   const cleanupWs = setupWebSocket(wss, options.botManager, logger);
 
   return {

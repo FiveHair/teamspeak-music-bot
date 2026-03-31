@@ -99,7 +99,9 @@ export class BotInstance extends EventEmitter {
 
   private setupTsEvents(): void {
     this.tsClient.on("textMessage", (msg: TS3TextMessage) => {
-      this.handleTextMessage(msg);
+      this.handleTextMessage(msg).catch((err) => {
+        this.logger.error({ err }, "Unhandled error in text message handler");
+      });
     });
 
     this.tsClient.on("disconnected", () => {

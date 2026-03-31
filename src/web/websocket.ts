@@ -39,7 +39,11 @@ export function setupWebSocket(
     const message = JSON.stringify(data);
     for (const client of clients) {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
+        try {
+          client.send(message);
+        } catch {
+          clients.delete(client);
+        }
       }
     }
   };

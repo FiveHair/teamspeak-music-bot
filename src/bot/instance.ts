@@ -144,12 +144,13 @@ export class BotInstance extends EventEmitter {
       if (response) {
         await this.tsClient.sendTextMessage(response);
       }
-    } catch (err) {
+    } catch (err: any) {
       this.logger.error({ err, command: parsed.name }, "Command execution error");
+      const friendlyMsg = err?.code === "ECONNREFUSED"
+        ? "Error: Music API server is not reachable. Please check if the service is running."
+        : `Error: ${(err as Error).message}`;
       try {
-        await this.tsClient.sendTextMessage(
-          `Error: ${(err as Error).message}`
-        );
+        await this.tsClient.sendTextMessage(friendlyMsg);
       } catch (sendErr) {
         this.logger.error({ err: sendErr }, "Failed to send error message to chat");
       }
@@ -252,7 +253,18 @@ export class BotInstance extends EventEmitter {
   private async cmdPlay(cmd: ParsedCommand): Promise<string> {
     if (!cmd.args) return "Usage: !play <song name or URL>";
     const provider = this.getProvider(cmd.flags);
-    const result = await provider.search(cmd.args, 1);
+
+    let result;
+    try {
+      result = await provider.search(cmd.args, 1);
+    } catch (err: any) {
+      if (err?.code === "ECONNREFUSED") {
+        this.logger.error({ err, platform: provider.platform }, "Music API server is not reachable");
+        return `Music API server for ${provider.platform} is not running. Please check the service.`;
+      }
+      throw err;
+    }
+
     if (result.songs.length === 0)
       return `No results found for: ${cmd.args}`;
 
@@ -269,7 +281,18 @@ export class BotInstance extends EventEmitter {
   private async cmdAdd(cmd: ParsedCommand): Promise<string> {
     if (!cmd.args) return "Usage: !add <song name>";
     const provider = this.getProvider(cmd.flags);
-    const result = await provider.search(cmd.args, 1);
+
+    let result;
+    try {
+      result = await provider.search(cmd.args, 1);
+    } catch (err: any) {
+      if (err?.code === "ECONNREFUSED") {
+        this.logger.error({ err, platform: provider.platform }, "Music API server is not reachable");
+        return `Music API server for ${provider.platform} is not running. Please check the service.`;
+      }
+      throw err;
+    }
+
     if (result.songs.length === 0)
       return `No results found for: ${cmd.args}`;
 

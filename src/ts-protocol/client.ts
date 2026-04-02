@@ -10,8 +10,10 @@ import {
   type Identity,
   type TextMessage,
   type ClientInfo,
+  type CommandMiddleware,
 } from "@honeybbq/teamspeak-client";
 import type { Logger } from "../logger.js";
+import { escapeValue } from "./commands.js";
 
 export { CODEC_OPUS_MUSIC } from "./voice.js";
 
@@ -78,6 +80,21 @@ export class TS3Client extends EventEmitter {
       this.logger.warn(msg);
     };
 
+    // Build command middleware to inject server password into clientinit
+    const commandMiddleware: CommandMiddleware[] = [];
+    if (this.options.serverPassword) {
+      const escaped = escapeValue(this.options.serverPassword);
+      commandMiddleware.push((next) => (cmd) => {
+        if (cmd.startsWith("clientinit ")) {
+          cmd = cmd.replace(
+            "client_server_password=",
+            `client_server_password=${escaped}`
+          );
+        }
+        return next(cmd);
+      });
+    }
+
     this.client = new TS3FullClient(this.identity, addr, this.options.nickname, {
       logger: {
         debug: (msg) => this.logger.debug(msg),
@@ -85,6 +102,7 @@ export class TS3Client extends EventEmitter {
         warn: throttledWarn,
         error: (msg) => this.logger.error(msg),
       },
+      commandMiddleware,
     });
 
     this.client.on("textMessage", (msg: TextMessage) => {

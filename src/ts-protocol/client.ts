@@ -91,17 +91,25 @@ export class TS3Client extends EventEmitter {
     // Monkey-patch handler.sendPacket to inject server password into clientinit.
     // The library sends clientinit directly via handler.sendPacket (bypassing
     // command middleware), so we intercept at the packet level.
+    // PacketType.Command = 2 in the library's enum.
     if (this.options.serverPassword) {
       const escaped = escapeValue(this.options.serverPassword);
       const origSendPacket = this.client.handler.sendPacket.bind(this.client.handler);
+      let injected = false;
       this.client.handler.sendPacket = (pType, data, flags) => {
-        const str = Buffer.from(data).toString("utf-8");
-        if (str.startsWith("clientinit ") && str.includes("client_server_password=")) {
-          const patched = str.replace(
-            "client_server_password=",
-            `client_server_password=${escaped}`
-          );
-          data = Buffer.from(patched);
+        // Only inspect Command packets (type 2), and only until we've injected once
+        if (!injected && pType === 2) {
+          const str = Buffer.from(data).toString("utf-8");
+          if (str.startsWith("clientinit ") && str.includes("client_server_password=")) {
+            const patched = str.replace(
+              "client_server_password=",
+              `client_server_password=${escaped}`
+            );
+            data = Buffer.from(patched);
+            injected = true;
+            // Restore original to avoid overhead on subsequent packets
+            this.client!.handler.sendPacket = origSendPacket;
+          }
         }
         origSendPacket(pType, data, flags);
       };

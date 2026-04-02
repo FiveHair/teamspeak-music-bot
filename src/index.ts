@@ -25,6 +25,14 @@ async function main() {
   saveConfig(CONFIG_PATH, config);
 
   const logger = createLogger(LOG_DIR);
+
+  // Prevent unhandled errors from crashing the process
+  process.on("uncaughtException", (err) => {
+    logger.error({ err }, "Uncaught exception");
+  });
+  process.on("unhandledRejection", (reason) => {
+    logger.error({ reason }, "Unhandled promise rejection");
+  });
   const db = createDatabase(DB_PATH);
 
   const apiServer = createApiServerManager(

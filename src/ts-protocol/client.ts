@@ -114,6 +114,7 @@ export class TS3Client extends EventEmitter {
     await this.client.connect();
     await this.client.waitConnected();
     this.clientId = this.client.clientID();
+    this.voiceFramesSent = 0;
     this.logger.info({ clientId: this.clientId }, "Logged in (visible client)");
 
     // Join default channel if specified

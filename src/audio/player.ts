@@ -128,6 +128,14 @@ export class AudioPlayer extends EventEmitter {
     this.logger.info({ ffmpeg: ffmpegBin }, "Using ffmpeg binary");
     this.ffmpeg = spawn(ffmpegBin, args, { stdio: ["ignore", "pipe", "pipe"] });
 
+    // Prevent stream errors from crashing the process
+    this.ffmpeg.stdout!.on("error", (err) => {
+      this.logger.warn({ err }, "FFmpeg stdout error");
+    });
+    this.ffmpeg.stderr!.on("error", (err) => {
+      this.logger.warn({ err }, "FFmpeg stderr error");
+    });
+
     let gotFirstData = false;
     this.ffmpeg.stdout!.on("data", (chunk: Buffer) => {
       if (!gotFirstData) {

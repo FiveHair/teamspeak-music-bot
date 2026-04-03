@@ -8,6 +8,8 @@ import type { BotDatabase } from "../data/database.js";
 import type { BotConfig } from "../data/config.js";
 import type { Logger } from "../logger.js";
 
+import type { ServerProtocol } from "../ts-protocol/client.js";
+
 export interface CreateBotParams {
   name: string;
   serverAddress: string;
@@ -17,6 +19,10 @@ export interface CreateBotParams {
   defaultChannel?: string;
   channelPassword?: string;
   autoStart?: boolean;
+  /** Force TS3 or TS6 protocol; omit or "unknown" for auto-detect. */
+  serverProtocol?: ServerProtocol;
+  /** API key for TS6 HTTP Query (port 10080/10443). */
+  ts6ApiKey?: string;
 }
 
 export class BotManager {
@@ -57,6 +63,8 @@ export class BotManager {
         nickname: params.nickname,
         defaultChannel: params.defaultChannel,
         channelPassword: params.channelPassword,
+        serverProtocol: params.serverProtocol,
+        ts6ApiKey: params.ts6ApiKey,
       },
       neteaseProvider: this.neteaseProvider,
       qqProvider: this.qqProvider,
@@ -148,10 +156,11 @@ export class BotManager {
         tsOptions: {
           host: saved.serverAddress,
           port: saved.serverPort,
-          queryPort: 10011,
+          queryPort: 10011, // Will be overridden by auto-detection for TS6
           nickname: saved.nickname,
           defaultChannel: saved.defaultChannel || undefined,
           channelPassword: saved.channelPassword || undefined,
+          // Protocol will be auto-detected on connect
         },
         neteaseProvider: this.neteaseProvider,
         qqProvider: this.qqProvider,

@@ -1,10 +1,17 @@
+/**
+ * TS3 raw-TCP ServerQuery connection (port 10011).
+ *
+ * @deprecated This module only works with TS3 servers. TS6 servers replaced
+ * the raw-TCP ServerQuery with HTTP/HTTPS (port 10080/10443) and SSH (10022).
+ * For TS6 servers, use {@link ../http-query.js TS6HttpQuery} instead.
+ */
 import net from "node:net";
 import { EventEmitter } from "node:events";
 import { encodeCommand, decodeResponse, parseErrorLine } from "./commands.js";
 
 export interface ConnectionOptions {
   host: string;
-  port: number; // ServerQuery port, typically 10011
+  port: number; // ServerQuery port: 10011 (TS3) — not available on TS6
 }
 
 export interface CommandResult {

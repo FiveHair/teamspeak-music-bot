@@ -12,18 +12,29 @@ import {
   type ClientInfo,
 } from "@honeybbq/teamspeak-client";
 import type { Logger } from "../logger.js";
+import {
+  detectServerProtocol,
+  type ServerProtocol,
+  type ProtocolDetectResult,
+} from "./protocol-detect.js";
+import { TS6HttpQuery } from "./http-query.js";
 
 export { CODEC_OPUS_MUSIC } from "./voice.js";
+export type { ServerProtocol } from "./protocol-detect.js";
 
 export interface TS3ClientOptions {
   host: string;
   port: number; // Voice/virtual server port (default 9987)
-  queryPort: number; // ServerQuery port (default 10011) — unused now, kept for compat
+  queryPort: number; // ServerQuery port (10011 for TS3, 10080 for TS6 HTTP)
   nickname: string;
   identity?: string; // Exported identity string, or undefined to generate new
   defaultChannel?: string;
   channelPassword?: string;
   serverPassword?: string;
+  /** Force a specific protocol instead of auto-detecting. */
+  serverProtocol?: ServerProtocol;
+  /** API key for TS6 HTTP Query authentication. */
+  ts6ApiKey?: string;
 }
 
 export interface TS3TextMessage {
@@ -40,6 +51,8 @@ export class TS3Client extends EventEmitter {
   private clientId = 0;
   private logger: Logger;
   private disconnecting = false;
+  private detectedProtocol: ServerProtocol = "unknown";
+  private httpQuery: TS6HttpQuery | null = null;
 
   constructor(private options: TS3ClientOptions, logger: Logger) {
     super();
@@ -52,9 +65,50 @@ export class TS3Client extends EventEmitter {
     }
   }
 
+  /** The detected (or forced) server protocol after connect(). */
+  getServerProtocol(): ServerProtocol {
+    return this.detectedProtocol;
+  }
+
+  /** TS6 HTTP Query client (available after connecting to a TS6 server). */
+  getHttpQuery(): TS6HttpQuery | null {
+    return this.httpQuery;
+  }
+
   async connect(): Promise<void> {
     const addr = `${this.options.host}:${this.options.port}`;
-    this.logger.info({ addr }, "Connecting to TeamSpeak server (full client protocol)");
+
+    // Detect or use forced protocol
+    if (this.options.serverProtocol && this.options.serverProtocol !== "unknown") {
+      this.detectedProtocol = this.options.serverProtocol;
+      this.logger.info(
+        { addr, protocol: this.detectedProtocol },
+        "Using forced server protocol",
+      );
+    } else {
+      this.logger.info({ addr }, "Detecting server protocol (TS3/TS6)...");
+      const detection = await detectServerProtocol(this.options.host, this.options.port);
+      this.detectedProtocol = detection.protocol;
+      this.logger.info(
+        { addr, protocol: this.detectedProtocol, queryPort: detection.queryPort },
+        `Server protocol detected: ${this.detectedProtocol.toUpperCase()}`,
+      );
+    }
+
+    // Set up TS6 HTTP Query if applicable
+    if (this.detectedProtocol === "ts6") {
+      const queryPort = this.options.queryPort !== 10011 ? this.options.queryPort : 10080;
+      this.httpQuery = new TS6HttpQuery({
+        host: this.options.host,
+        port: queryPort,
+        apiKey: this.options.ts6ApiKey,
+      });
+    }
+
+    this.logger.info(
+      { addr, protocol: this.detectedProtocol },
+      "Connecting to TeamSpeak server (full client protocol)",
+    );
 
     // Throttle repeated "udp send error" warnings (fires every 20ms during playback if UDP breaks)
     let udpErrorCount = 0;
@@ -115,7 +169,10 @@ export class TS3Client extends EventEmitter {
     await this.client.waitConnected();
     this.clientId = this.client.clientID();
     this.voiceFramesSent = 0;
-    this.logger.info({ clientId: this.clientId }, "Logged in (visible client)");
+    this.logger.info(
+      { clientId: this.clientId, protocol: this.detectedProtocol },
+      `Logged in (visible client, ${this.detectedProtocol.toUpperCase()} server)`,
+    );
 
     // Join default channel if specified
     if (this.options.defaultChannel) {

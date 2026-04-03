@@ -11,6 +11,13 @@ export interface ProtocolDetectResult {
   voicePort: number;
 }
 
+export interface DetectOptions {
+  /** TS3 ServerQuery probe port (default: 10011) */
+  ts3QueryPort?: number;
+  /** TS6 HTTP Query probe port (default: 10080) */
+  ts6HttpPort?: number;
+}
+
 /**
  * Probe a TeamSpeak server to determine if it's running TS3 or TS6.
  *
@@ -23,17 +30,22 @@ export async function detectServerProtocol(
   host: string,
   voicePort = 9987,
   timeoutMs = 3000,
+  options?: DetectOptions,
 ): Promise<ProtocolDetectResult> {
+  const ts3Port = options?.ts3QueryPort ?? 10011;
+  const ts6Port = options?.ts6HttpPort ?? 10080;
+
   const [ts3, ts6] = await Promise.allSettled([
-    probeTS3Query(host, 10011, timeoutMs),
-    probeTS6HttpQuery(host, 10080, timeoutMs),
+    probeTS3Query(host, ts3Port, timeoutMs),
+    probeTS6HttpQuery(host, ts6Port, timeoutMs),
   ]);
 
+  // Prefer TS3 if both somehow respond (shouldn't happen in practice)
   if (ts3.status === "fulfilled" && ts3.value) {
-    return { protocol: "ts3", queryPort: 10011, voicePort };
+    return { protocol: "ts3", queryPort: ts3Port, voicePort };
   }
   if (ts6.status === "fulfilled" && ts6.value) {
-    return { protocol: "ts6", queryPort: 10080, voicePort };
+    return { protocol: "ts6", queryPort: ts6Port, voicePort };
   }
 
   return { protocol: "unknown", queryPort: null, voicePort };
@@ -44,49 +56,50 @@ export async function detectServerProtocol(
  */
 function probeTS3Query(host: string, port: number, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const socket = net.createConnection({ host, port, timeout: timeoutMs });
-    let banner = "";
-
-    const cleanup = () => {
+    let resolved = false;
+    const done = (value: boolean) => {
+      if (resolved) return;
+      resolved = true;
       socket.removeAllListeners();
       socket.destroy();
+      resolve(value);
     };
+
+    const socket = net.createConnection({ host, port, timeout: timeoutMs });
+    let banner = "";
 
     socket.setTimeout(timeoutMs);
 
     socket.on("data", (data: Buffer) => {
       banner += data.toString("utf-8");
       if (banner.includes("TS3")) {
-        cleanup();
-        resolve(true);
+        done(true);
       }
     });
 
     socket.on("connect", () => {
-      // Wait briefly for banner
-      setTimeout(() => {
-        cleanup();
-        resolve(banner.includes("TS3"));
-      }, 500);
+      // Wait briefly for banner after TCP connect
+      setTimeout(() => done(banner.includes("TS3")), 500);
     });
 
-    socket.on("error", () => {
-      cleanup();
-      resolve(false);
-    });
-
-    socket.on("timeout", () => {
-      cleanup();
-      resolve(false);
-    });
+    socket.on("error", () => done(false));
+    socket.on("timeout", () => done(false));
   });
 }
 
 /**
  * Probe TS6 HTTP Query by sending GET / and checking for a valid response.
+ * Any HTTP status (including 401/403) confirms the TS6 HTTP Query exists.
  */
 function probeTS6HttpQuery(host: string, port: number, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
+    let resolved = false;
+    const done = (value: boolean) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(value);
+    };
+
     const req = http.request(
       {
         hostname: host,
@@ -97,16 +110,15 @@ function probeTS6HttpQuery(host: string, port: number, timeoutMs: number): Promi
         headers: { Accept: "application/json" },
       },
       (res) => {
-        // TS6 HTTP Query returns some response (even 401/403 is valid — it means the service exists)
         res.resume();
-        resolve(res.statusCode !== undefined);
+        done(res.statusCode !== undefined);
       },
     );
 
-    req.on("error", () => resolve(false));
+    req.on("error", () => done(false));
     req.on("timeout", () => {
       req.destroy();
-      resolve(false);
+      done(false);
     });
 
     req.end();

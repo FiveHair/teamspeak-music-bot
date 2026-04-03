@@ -82,6 +82,7 @@ export class TS6HttpQuery extends EventEmitter {
           let data = "";
           res.setEncoding("utf-8");
           res.on("data", (chunk: string) => (data += chunk));
+          res.on("error", reject);
           res.on("end", () => {
             let parsed: unknown;
             try {

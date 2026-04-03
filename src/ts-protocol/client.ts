@@ -87,12 +87,25 @@ export class TS3Client extends EventEmitter {
       );
     } else {
       this.logger.info({ addr }, "Detecting server protocol (TS3/TS6)...");
-      const detection = await detectServerProtocol(this.options.host, this.options.port);
-      this.detectedProtocol = detection.protocol;
-      this.logger.info(
-        { addr, protocol: this.detectedProtocol, queryPort: detection.queryPort },
-        `Server protocol detected: ${this.detectedProtocol.toUpperCase()}`,
+      const detection = await detectServerProtocol(
+        this.options.host,
+        this.options.port,
+        3000,
+        { ts3QueryPort: 10011, ts6HttpPort: 10080 },
       );
+      this.detectedProtocol = detection.protocol;
+      if (this.detectedProtocol === "unknown") {
+        this.logger.warn(
+          { addr },
+          "Could not detect server protocol (query ports 10011/10080 unreachable). " +
+            "Will attempt voice connection anyway. Use serverProtocol option to force TS3 or TS6.",
+        );
+      } else {
+        this.logger.info(
+          { addr, protocol: this.detectedProtocol, queryPort: detection.queryPort },
+          `Server protocol detected: ${this.detectedProtocol.toUpperCase()}`,
+        );
+      }
     }
 
     // Set up TS6 HTTP Query if applicable
@@ -270,6 +283,8 @@ export class TS3Client extends EventEmitter {
       });
     }
     this.clientId = 0;
+    this.httpQuery = null;
+    this.detectedProtocol = "unknown";
     this.logger.info("Disconnected from TeamSpeak server");
   }
 }

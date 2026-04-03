@@ -21,7 +21,7 @@
 </p>
 
 > **`dev` 分支** — 活跃开发分支，包含最新特性和 bug 修复。
-> 如需稳定版本，请切换到 [`main`](https://github.com/ZHANGTIANYAO1/teamspeak-music-bot/tree/main) 分支。
+> ！！！如非必要！！！请使用稳定版本，请切换到 [`main`](https://github.com/ZHANGTIANYAO1/teamspeak-music-bot/tree/main) 分支。
 
 ---
 

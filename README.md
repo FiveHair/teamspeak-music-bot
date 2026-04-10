@@ -64,7 +64,7 @@ FFmpeg **已自动内置**，无需手动安装。
 
 ```bash
 # 下载项目
-git clone https://github.com/ZHANGTIANYAO1/tsmusicbot.git
+git clone https://github.com/ZHANGTIANYAO1/teamspeak-music-bot.git
 cd tsmusicbot
 
 # 安装依赖
@@ -85,7 +85,7 @@ npm start
 所有依赖已内置（Node.js、FFmpeg、Opus 编码器），无需安装任何额外软件。
 
 ```bash
-git clone https://github.com/ZHANGTIANYAO1/tsmusicbot.git
+git clone https://github.com/ZHANGTIANYAO1/teamspeak-music-bot.git
 cd tsmusicbot/scripts/docker
 docker-compose up -d
 ```
